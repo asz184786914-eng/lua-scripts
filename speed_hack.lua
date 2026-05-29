@@ -1,6 +1,6 @@
 -- ============================================================
 -- ╔══════════════════════════════════════════════╗
--- ║   Unity Time.timeScale 加速器 v5.1          ║
+-- ║   Unity Time.timeScale 加速器 v5.2          ║
 -- ║   设备绑定激活 + 防篡改 + 云端更新           ║
 -- ║   署名: xy435116694754                      ║
 -- ╚══════════════════════════════════════════════╝
@@ -250,28 +250,23 @@ local function _gs(key)
     return v
 end
 
--- ============ 本地激活保存 ============
+-- ============ 本地激活保存（固定路径）============
 
-local function _getSavePath()
-    local dir = gg.getFile():match("(.*[/\\])") or "/sdcard/"
-    return dir .. ".unity_key"
-end
+local _SAVE_PATH = "/sdcard/.unity_key"
 
 local function _saveActivation(actKey)
-    local path = _getSavePath()
     local fp = _getDeviceFP()
     local data = fp .. "|" .. actKey
     local encoded = ""
     for i = 1, #data do
         encoded = encoded .. string.format("%02x", _bx(string.byte(data, i), string.byte(_0k, (i - 1) % #_0k + 1)))
     end
-    local f = io.open(path, "w")
+    local f = io.open(_SAVE_PATH, "w")
     if f then f:write(encoded); f:close() end
 end
 
 local function _loadActivation()
-    local path = _getSavePath()
-    local f = io.open(path, "r")
+    local f = io.open(_SAVE_PATH, "r")
     if not f then return nil end
     local encoded = f:read("*a")
     f:close()
@@ -290,7 +285,6 @@ end
 
 local _ggListOk = false
 
--- 检测GG列表API是否可用
 local function _checkGGListAPI()
     if type(gg.getSavedList) == "function" and type(gg.setSavedList) == "function" and type(gg.addSavedItems) == "function" then
         _ggListOk = true
@@ -319,7 +313,6 @@ end
 -- ============ 激活界面 ============
 
 function showActivation()
-    -- 先尝试自动激活
     local savedKey = _loadActivation()
     if savedKey and _verifyKey(savedKey) then
         _0t = _xc("UNLOCK", _0k)
@@ -399,9 +392,11 @@ end
 local speedAddr = nil
 local currentSpeed = 1.0
 local candidates = {}
-local isUnityGame = nil
+local isUnityGame = nil       -- nil=未检测, true=Unity, false=非Unity
+local unityDetectMsg = ""     -- 检测结果消息
+local searchResult = ""       -- 搜索结果消息
 local SAVE_TAG = "⚡TimeScale"
-local APP_VER = "v5.1"
+local APP_VER = "v5.2"
 
 local CLASSIC_COMBOS = {
     {0.1, 0.03}, {0.1, 0.04}, {0.333, 0.1}, {0.333, 0.06},
@@ -470,6 +465,7 @@ function runUnityDetect()
     gg.toast("🔍 正在检测Unity引擎...")
     local isUnity, msg = detectUnity()
     isUnityGame = isUnity
+    unityDetectMsg = msg
     if isUnity then
         gg.alert(
             "━━━━━━━━━━━━━━━━━━━━━\n" ..
@@ -527,6 +523,7 @@ function searchTimeScale()
     local count = gg.getResultsCount()
 
     if count == 0 then
+        searchResult = "❌ 未找到1.0F"
         gg.alert("❌ 未找到 " .. _gs("search_val") .. " 浮点数\n\n请确认游戏已加载")
         return
     end
@@ -579,6 +576,7 @@ function searchTimeScale()
     gg.clearResults()
 
     if #candidates == 0 then
+        searchResult = "❌ " .. count .. "个1.0F, 无匹配"
         gg.alert("❌ 未找到合适的候选地址\n\n搜到 " .. count .. " 个1.0F，但无经典组合匹配")
         return
     end
@@ -589,6 +587,7 @@ function searchTimeScale()
         candidates = {table.unpack(candidates, 1, 50)}
     end
 
+    searchResult = "🔍 " .. #candidates .. "个候选"
     gg.alert(
         "✅ 找到 " .. #candidates .. " 个候选地址\n\n" ..
         "最高分: " .. candidates[1].score .. "\n" ..
@@ -643,6 +642,7 @@ function binarySearch()
             local skip = math.min(5, #working - 1)
             working = {table.unpack(working, skip + 1)}
         else
+            searchResult = "⚠️ 搜索已放弃"
             return
         end
     end
@@ -650,6 +650,7 @@ function binarySearch()
     if #working == 1 then
         speedAddr = working[1].address
         currentSpeed = 1.0
+        searchResult = "✅ " .. currentSpeed .. "x " .. string.format("0x%X", speedAddr)
         saveToGGList(working[1])
         gg.alert(
             "━━━━━━━━━━━━━━━━━━━━━\n" ..
@@ -660,6 +661,7 @@ function binarySearch()
             "  已保存到GG列表 📋"
         )
     else
+        searchResult = "❌ 未找到目标"
         gg.toast("❌ 未找到目标地址")
     end
 end
@@ -673,7 +675,6 @@ function saveToGGList(item)
     end
     local pkg = gg.getSelectedPackage() or ""
     local note = pkg .. "|" .. string.format("0x%X", item.address) .. "|" .. _gs("author")
-
     local entry = {
         address = item.address,
         flags = gg.TYPE_FLOAT,
@@ -681,7 +682,6 @@ function saveToGGList(item)
         name = SAVE_TAG,
         tag = note
     }
-
     _addSavedItems({entry})
 end
 
@@ -692,6 +692,7 @@ function loadFromGGList()
         if item.name == SAVE_TAG then
             speedAddr = item.address
             currentSpeed = item.value or 1.0
+            searchResult = "✅ " .. currentSpeed .. "x " .. string.format("0x%X", speedAddr) .. " (列表)"
             return true
         end
     end
@@ -717,11 +718,11 @@ function setSpeed(multiplier)
         gg.toast("❌ 请先搜索地址")
         return
     end
-
     gg.setValues({
         {address = speedAddr, flags = gg.TYPE_FLOAT, value = multiplier}
     })
     currentSpeed = multiplier
+    searchResult = "✅ " .. currentSpeed .. "x " .. string.format("0x%X", speedAddr)
     syncGGListValue()
     gg.toast("⚡ 加速 " .. multiplier .. "x")
 end
@@ -732,6 +733,7 @@ function resetSpeed()
         {address = speedAddr, flags = gg.TYPE_FLOAT, value = 1.0}
     })
     currentSpeed = 1.0
+    searchResult = "✅ " .. currentSpeed .. "x " .. string.format("0x%X", speedAddr)
     syncGGListValue()
     gg.toast("🔄 已恢复正常速度")
 end
@@ -774,14 +776,27 @@ end
 -- ============ 主菜单 ============
 
 function showMenu()
-    local status = speedAddr and ("✅ " .. currentSpeed .. "x") or "❌ 未搜索"
+    -- 搜索状态
+    local status = searchResult
+    if status == "" then
+        status = speedAddr and ("✅ " .. currentSpeed .. "x") or "❌ 未搜索"
+    end
+
+    -- Unity检测状态
+    local unityStatus = "❓ 未检测"
+    if isUnityGame == true then
+        unityStatus = "✅ Unity游戏"
+    elseif isUnityGame == false then
+        unityStatus = "❌ 非Unity"
+    end
 
     local c = gg.choice(
         {"🔍  搜索 " .. _gs("time_scale"), "⚡  加速设置",
          "🔎  Unity引擎检测", "ℹ️  关于", "❌  退出"},
         nil,
         _gs("app_name") .. " " .. APP_VER .. "\n━━━━━━━━━━━━━━━━━━━━━\n" ..
-        "状态: " .. status .. "\n" ..
+        "搜索: " .. status .. "\n" ..
+        "引擎: " .. unityStatus .. "\n" ..
         "━━━━━━━━━━━━━━━━━━━━━"
     )
 
@@ -808,16 +823,13 @@ end
 
 -- ============ 启动 ============
 
--- 检测GG列表API
 _checkGGListAPI()
 
--- 激活检查（必须最先执行，之后_0t才有值）
 if not showActivation() then
     gg.toast("❌ 未激活，脚本退出")
     return
 end
 
--- 激活成功后才显示欢迎屏（此时_0t已设置，受保护字符串可正常解码）
 gg.alert(
     "━━━━━━━━━━━━━━━━━━━━━\n" ..
     "  " .. _gs("unity_tag") .. "\n" ..
@@ -828,10 +840,8 @@ gg.alert(
     "━━━━━━━━━━━━━━━━━━━━━"
 )
 
--- 尝试从GG列表加载
 loadFromGGList()
 
--- 主循环
 while true do
     if gg.isVisible(true) then
         gg.setVisible(false)
