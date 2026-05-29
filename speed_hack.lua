@@ -8,7 +8,6 @@
 
 -- ============ 基础工具函数 ============
 
--- 字节级XOR
 local function _bx(a, b)
     local r, m = 0, 1
     for _ = 1, 8 do
@@ -18,7 +17,6 @@ local function _bx(a, b)
     return r
 end
 
--- XOR编解码（字符串级）
 local function _xc(s, k)
     local r = {}
     for i = 1, #s do
@@ -27,7 +25,6 @@ local function _xc(s, k)
     return table.concat(r)
 end
 
--- 十六进制解码
 local function _fh(s)
     local r = {}
     for i = 1, #s, 2 do
@@ -36,7 +33,6 @@ local function _fh(s)
     return table.concat(r)
 end
 
--- 32位XOR
 local function _xor32(a, b)
     local r, m = 0, 1
     for _ = 1, 32 do
@@ -46,7 +42,6 @@ local function _xor32(a, b)
     return r
 end
 
--- FNV-1a 32位哈希（与Python keygen完全一致）
 local function _fnv1a(s, seed)
     local h = seed or 0x811c9dc5
     for i = 1, #s do
@@ -99,7 +94,6 @@ local function _b32dec(s)
     return table.concat(result)
 end
 
--- 格式化编码为分组显示
 local function _fmtCode(s, g)
     g = g or 4
     local r = {}
@@ -112,8 +106,8 @@ end
 -- ============ 主密钥与激活状态 ============
 
 local _0k = "xy435116694754"
-local _0t = nil    -- 运行时令牌（激活成功后设置）
-local _0v = false  -- 激活状态
+local _0t = nil
+local _0v = false
 
 -- ============ 设备指纹哈希 ============
 
@@ -127,13 +121,12 @@ local function _fpHash(fp_str)
         v = math.floor(v / 256)
     end
     b = b .. string.char(h2 % 256)
-    return b  -- 5字节
+    return b
 end
 
 -- ============ 激活码哈希 ============
 
 local function _actHash(fp_hex)
-    -- 激活密钥：XOR编码存储，运行时解密
     local _as = _xc(_fh("2b095156517950555d0b0405006c21"), _0k)
     local actInput = fp_hex .. _as
     local ah1 = _fnv1a(actInput, 0x5678ef01)
@@ -147,7 +140,7 @@ local function _actHash(fp_hex)
             v = math.floor(v / 256)
         end
     end
-    return b:sub(1, 10)  -- 10字节
+    return b:sub(1, 10)
 end
 
 -- ============ 设备指纹采集 ============
@@ -156,7 +149,6 @@ local function _getDeviceFP()
     local ids = {}
     local f, c
 
-    -- 1. /proc/cmdline → androidboot.serialno
     f = io.open("/proc/cmdline", "r")
     if f then
         c = f:read("*a"); f:close()
@@ -168,7 +160,6 @@ local function _getDeviceFP()
         end
     end
 
-    -- 2. /proc/cpuinfo → Hardware + Serial
     f = io.open("/proc/cpuinfo", "r")
     if f then
         c = f:read("*a"); f:close()
@@ -183,7 +174,6 @@ local function _getDeviceFP()
         end
     end
 
-    -- 3. /sys/devices/soc0/serial_number
     f = io.open("/sys/devices/soc0/serial_number", "r")
     if f then
         c = f:read("*a"):gsub("%s", "")
@@ -191,7 +181,6 @@ local function _getDeviceFP()
         if c ~= "" then ids[#ids + 1] = c end
     end
 
-    -- 4. /sys/devices/soc0/machine
     f = io.open("/sys/devices/soc0/machine", "r")
     if f then
         c = f:read("*a"):gsub("%s", "")
@@ -244,14 +233,13 @@ local function _ds(hex_str)
     return _xc(raw, key)
 end
 
--- 预编码关键字符串
 local _P = {
-    search_val = "1c1948",                                     -- "1.0"
-    author     = "554e4c4f434b494f020a01060402",               -- "xy435116694754"
-    app_name   = "785911080f9ff2d9ddb3aad4a89e",               -- "Unity加速器"
-    time_scale = "795e15192519191551",                          -- "TimeScale"
-    unity_tag  = "785911080f9ff2d9ddb3aad4a89e164f011904",     -- "Unity加速器 v5.1"
-    about_info = "785911080f9ff2d9ddb3aad4a89e164f01",         -- "Unity加速器 v5"
+    search_val = "1c1948",
+    author     = "554e4c4f434b494f020a01060402",
+    app_name   = "785911080f9ff2d9ddb3aad4a89e",
+    time_scale = "795e15192519191551",
+    unity_tag  = "785911080f9ff2d9ddb3aad4a89e164f011904",
+    about_info = "785911080f9ff2d9ddb3aad4a89e164f01",
 }
 
 local function _gs(key)
@@ -298,6 +286,36 @@ local function _loadActivation()
     return savedKey
 end
 
+-- ============ GG保存列表（安全封装）============
+
+local _ggListOk = false
+
+-- 检测GG列表API是否可用
+local function _checkGGListAPI()
+    if type(gg.getSavedList) == "function" and type(gg.setSavedList) == "function" and type(gg.addSavedItems) == "function" then
+        _ggListOk = true
+    end
+end
+
+local function _getSavedList()
+    if not _ggListOk then return {} end
+    local ok, list = pcall(gg.getSavedList)
+    if ok and type(list) == "table" then return list end
+    return {}
+end
+
+local function _addSavedItems(items)
+    if not _ggListOk then return false end
+    local ok, r = pcall(gg.addSavedItems, items)
+    return ok
+end
+
+local function _setSavedList(list)
+    if not _ggListOk then return false end
+    local ok, r = pcall(gg.setSavedList, list)
+    return ok
+end
+
 -- ============ 激活界面 ============
 
 function showActivation()
@@ -310,7 +328,6 @@ function showActivation()
         return true
     end
 
-    -- 获取设备码
     local deviceCode = _getDeviceCode()
 
     while true do
@@ -386,7 +403,6 @@ local isUnityGame = nil
 local SAVE_TAG = "⚡TimeScale"
 local APP_VER = "v5.1"
 
--- Unity Time经典组合
 local CLASSIC_COMBOS = {
     {0.1, 0.03}, {0.1, 0.04}, {0.333, 0.1}, {0.333, 0.06},
     {0.333, 0.15}, {0.333, 0.03}, {0.02, 0.1}, {0.02, 0.333},
@@ -415,7 +431,6 @@ function detectUnity()
     local il2cpp = {name = "libil2cpp.so", sig = "h 6C 69 62 69 6C 32 63 70 70 2E 73 6F"}
 
     for _, feat in ipairs(coreFeatures) do
-        local cnt = gg.getResultsCount()
         gg.clearResults()
         gg.searchNumber(feat.sig, gg.TYPE_BYTE)
         local found = gg.getResultsCount()
@@ -649,9 +664,13 @@ function binarySearch()
     end
 end
 
--- ============ GG保存列表 ============
+-- ============ GG保存列表功能 ============
 
 function saveToGGList(item)
+    if not _ggListOk then
+        gg.toast("⚠️ GG列表不可用，地址: " .. string.format("0x%X", item.address))
+        return
+    end
     local pkg = gg.getSelectedPackage() or ""
     local note = pkg .. "|" .. string.format("0x%X", item.address) .. "|" .. _gs("author")
 
@@ -663,11 +682,12 @@ function saveToGGList(item)
         tag = note
     }
 
-    gg.addSavedItems({entry})
+    _addSavedItems({entry})
 end
 
 function loadFromGGList()
-    local saved = gg.getSavedList()
+    if not _ggListOk then return false end
+    local saved = _getSavedList()
     for i, item in ipairs(saved) do
         if item.name == SAVE_TAG then
             speedAddr = item.address
@@ -679,12 +699,12 @@ function loadFromGGList()
 end
 
 function syncGGListValue()
-    if not speedAddr then return end
-    local saved = gg.getSavedList()
+    if not speedAddr or not _ggListOk then return end
+    local saved = _getSavedList()
     for i, item in ipairs(saved) do
         if item.name == SAVE_TAG and item.address == speedAddr then
             saved[i].value = currentSpeed
-            gg.setSavedList(saved)
+            _setSavedList(saved)
             return
         end
     end
@@ -757,55 +777,18 @@ function showMenu()
     local status = speedAddr and ("✅ " .. currentSpeed .. "x") or "❌ 未搜索"
 
     local c = gg.choice(
-        {"🔍  搜索 " .. _gs("time_scale"), "⚡  加速设置", "📋  GG列表管理",
+        {"🔍  搜索 " .. _gs("time_scale"), "⚡  加速设置",
          "🔎  Unity引擎检测", "ℹ️  关于", "❌  退出"},
         nil,
-        _gs("unity_tag") .. "\n━━━━━━━━━━━━━━━━━━━━━\n" ..
+        _gs("app_name") .. " " .. APP_VER .. "\n━━━━━━━━━━━━━━━━━━━━━\n" ..
         "状态: " .. status .. "\n" ..
         "━━━━━━━━━━━━━━━━━━━━━"
     )
 
     if c == 1 then searchTimeScale()
     elseif c == 2 then showSpeedMenu()
-    elseif c == 3 then showGGListMenu()
-    elseif c == 4 then runUnityDetect()
-    elseif c == 5 then showAbout()
-    end
-end
-
-function showGGListMenu()
-    local saved = gg.getSavedList()
-    local found = false
-    for _, item in ipairs(saved) do
-        if item.name == SAVE_TAG then
-            found = true
-            break
-        end
-    end
-
-    local c = gg.choice(
-        {"📥  从GG列表加载地址", "🗑️  清除GG列表记录", "🔙  返回"},
-        nil,
-        "📋 GG列表管理\n\n" .. (found and "✅ 列表中有保存的地址" or "❌ 列表中无保存的地址")
-    )
-
-    if c == 1 then
-        if loadFromGGList() then
-            gg.toast("✅ 已加载: " .. string.format("0x%X", speedAddr))
-        else
-            gg.toast("❌ 未找到保存的地址")
-        end
-    elseif c == 2 then
-        local list = gg.getSavedList()
-        for i = #list, 1, -1 do
-            if list[i].name == SAVE_TAG then
-                table.remove(list, i)
-            end
-        end
-        gg.setSavedList(list)
-        speedAddr = nil
-        currentSpeed = 1.0
-        gg.toast("🗑️ 已清除")
+    elseif c == 3 then runUnityDetect()
+    elseif c == 4 then showAbout()
     end
 end
 
@@ -825,6 +808,16 @@ end
 
 -- ============ 启动 ============
 
+-- 检测GG列表API
+_checkGGListAPI()
+
+-- 激活检查（必须最先执行，之后_0t才有值）
+if not showActivation() then
+    gg.toast("❌ 未激活，脚本退出")
+    return
+end
+
+-- 激活成功后才显示欢迎屏（此时_0t已设置，受保护字符串可正常解码）
 gg.alert(
     "━━━━━━━━━━━━━━━━━━━━━\n" ..
     "  " .. _gs("unity_tag") .. "\n" ..
@@ -835,13 +828,10 @@ gg.alert(
     "━━━━━━━━━━━━━━━━━━━━━"
 )
 
-if not showActivation() then
-    gg.toast("❌ 未激活，脚本退出")
-    return
-end
-
+-- 尝试从GG列表加载
 loadFromGGList()
 
+-- 主循环
 while true do
     if gg.isVisible(true) then
         gg.setVisible(false)
