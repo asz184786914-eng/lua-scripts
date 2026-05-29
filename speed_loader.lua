@@ -1,21 +1,25 @@
 -- ============================================================
---  Unity加速器 在线加载器 v5.1
---  优先从GitHub云端加载主脚本，失败则使用本地文件
+--  Unity加速器 在线加载器 v5.2
+--  多CDN源加载，国内无需VPN
 --  署名: xy435116694754
 -- ============================================================
 
-local CLOUD_URL = "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua"
+local CDN_URLS = {
+    "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua",
+    "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua",
+    "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua",
+    "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua",
+}
 local LOCAL_FILE = "speed_hack.lua"
 
 gg.toast("🌐 正在加载脚本...")
 
-local function loadFromCloud()
+local function tryLoad(url)
     local ok, resp = pcall(function()
-        return gg.makeRequest(CLOUD_URL)
+        return gg.makeRequest(url)
     end)
     if not ok or not resp then return nil end
 
-    -- gg.makeRequest可能返回string或table，兼容处理
     local code = resp
     if type(resp) == "table" then
         code = resp.content or resp.body or resp.string or resp[1]
@@ -38,12 +42,18 @@ local function loadFromLocal()
     return nil
 end
 
--- 优先云端
-local scriptCode = loadFromCloud()
+-- 依次尝试各CDN源
+local scriptCode = nil
+for i, url in ipairs(CDN_URLS) do
+    scriptCode = tryLoad(url)
+    if scriptCode then
+        gg.toast("✅ 加载成功 (源" .. i .. ")")
+        break
+    end
+end
 
-if scriptCode then
-    gg.toast("✅ 云端加载成功")
-else
+-- 全部CDN失败，尝试本地
+if not scriptCode then
     gg.toast("⚠️ 云端加载失败，尝试本地...")
     scriptCode = loadFromLocal()
     if scriptCode then
@@ -54,7 +64,6 @@ else
     end
 end
 
--- 执行主脚本
 local fn, err = load(scriptCode)
 if fn then
     fn()
