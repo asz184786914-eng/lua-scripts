@@ -16,6 +16,56 @@ local MAX_RETRY = 2
 
 gg.toast("🌐 正在加载脚本...")
 
+-- ============ 预读取本地激活码 ============
+local _savedActData = nil
+local _actPaths = {
+    "/sdcard/.unity_key",
+    "/data/local/tmp/.unity_key",
+}
+
+-- 尝试从文件读取
+for _, p in ipairs(_actPaths) do
+    local f = io.open(p, "r")
+    if f then
+        local d = f:read("*a")
+        f:close()
+        if d and d ~= "" then
+            _savedActData = d
+            break
+        end
+    end
+end
+
+-- 脚本同目录
+if not _savedActData then
+    local ok, sp = pcall(gg.getFile)
+    if ok and sp then
+        local dir = sp:match(".*/")
+        if dir then
+            local f = io.open(dir .. ".unity_key", "r")
+            if f then
+                local d = f:read("*a")
+                f:close()
+                if d and d ~= "" then _savedActData = d end
+            end
+        end
+    end
+end
+
+-- gg.loadVariable
+if not _savedActData then
+    if type(gg.loadVariable) == "function" then
+        local ok2, val = pcall(gg.loadVariable, "unity_act")
+        if ok2 and val and type(val) == "string" and val ~= "" then
+            _savedActData = val
+        end
+    end
+end
+
+if _savedActData then
+    gg.toast("📋 已读取本地激活信息")
+end
+
 local function tryLoad(url)
     local ok, resp = pcall(function()
         return gg.makeRequest(url)
@@ -112,6 +162,11 @@ if not scriptCode then
     end
 else
     gg.toast("✅ 加载成功 (" .. usedSource .. ")")
+end
+
+-- 注入预读取的激活码到主脚本
+if _savedActData and scriptCode then
+    scriptCode = "_PRELOADED_ACT = [[" .. _savedActData .. "]]\n" .. scriptCode
 end
 
 local fn, err = load(scriptCode)

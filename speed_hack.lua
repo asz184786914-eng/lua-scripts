@@ -277,58 +277,28 @@ local function _decodeActivation(encoded)
     return savedKey
 end
 
+local function _writeFile(path, data)
+    local f = io.open(path, "w")
+    if not f then return false end
+    f:write(data)
+    f:close()
+    -- 验证写入
+    local vf = io.open(path, "r")
+    if not vf then return false end
+    local v = vf:read("*a")
+    vf:close()
+    return v == data
+end
+
 local function _saveActivation(actKey)
     local encoded = _encodeActivation(actKey)
     local saved = false
+    local methods = {}
 
     -- 方式1: 固定路径 /sdcard/.unity_key
-    local f = io.open(_SAVE_PATH, "w")
-    if f then
-        f:write(encoded)
-        f:close()
+    if _writeFile(_SAVE_PATH, encoded) then
         saved = true
-    end
-
-    -- 方式2: 脚本同目录
-    if not saved then
-        local ok, scriptPath = pcall(gg.getFile)
-        if ok and scriptPath then
-            local dir = scriptPath:match("(.*/)")
-            if dir then
-                f = io.open(dir .. ".unity_key", "w")
-                if f then
-                    f:write(encoded)
-                    f:close()
-                    saved = true
-                end
-            end
-        end
-    end
-
-    -- 方式3: gg.saveVariable（GG内置持久化，不依赖文件系统）
-    if type(gg.saveVariable) == "function" then
-        pcall(gg.saveVariable, _SAVE_TAG, encoded)
-        saved = true
-    end
-
-    if not saved then
-        gg.toast("⚠️ 激活码保存失败，下次需重新输入")
-    end
-end
-
-local function _loadActivation()
-    local encoded = nil
-
-    -- 方式1: 固定路径
-    local f = io.open(_SAVE_PATH, "r")
-    if f then
-        encoded = f:read("*a")
-        f:close()
-        if encoded and encoded ~= "" then
-            local key = _decodeActivation(encoded)
-            if key then return key end
-        end
-        encoded = nil
+        methods[#methods + 1] = "固定路径"
     end
 
     -- 方式2: 脚本同目录
@@ -336,20 +306,83 @@ local function _loadActivation()
     if ok and scriptPath then
         local dir = scriptPath:match("(.*/)")
         if dir then
-            f = io.open(dir .. ".unity_key", "r")
-            if f then
-                encoded = f:read("*a")
-                f:close()
-                if encoded and encoded ~= "" then
-                    local key = _decodeActivation(encoded)
-                    if key then return key end
-                end
-                encoded = nil
+            local p = dir .. ".unity_key"
+            if _writeFile(p, encoded) then
+                saved = true
+                methods[#methods + 1] = "脚本目录"
             end
         end
     end
 
-    -- 方式3: gg.loadVariable
+    -- 方式3: /data/local/tmp/ (Root设备通常可写)
+    local tmpPath = "/data/local/tmp/.unity_key"
+    if _writeFile(tmpPath, encoded) then
+        saved = true
+        methods[#methods + 1] = "tmp目录"
+    end
+
+    -- 方式4: gg.saveVariable
+    if type(gg.saveVariable) == "function" then
+        local ok2, err = pcall(gg.saveVariable, _SAVE_TAG, encoded)
+        if ok2 then
+            saved = true
+            methods[#methods + 1] = "GG存储"
+        end
+    end
+
+    -- 方式5: 通过su写文件 (Root)
+    if not saved then
+        local suCmd = "echo '" .. encoded .. "' > " .. _SAVE_PATH
+        local ok3 = pcall(os.execute, "su -c '" .. suCmd .. "'")
+        if ok3 then
+            local vf = io.open(_SAVE_PATH, "r")
+            if vf then
+                local v = vf:read("*a")
+                vf:close()
+                if v == encoded then
+                    saved = true
+                    methods[#methods + 1] = "Root写入"
+                end
+            end
+        end
+    end
+
+    if saved then
+        gg.toast("✅ 激活码已保存 (" .. table.concat(methods, "+") .. ")")
+    else
+        gg.toast("⚠️ 激活码保存失败，下次需重新输入")
+    end
+end
+
+local function _loadActivation()
+    local paths = {
+        _SAVE_PATH,
+        "/data/local/tmp/.unity_key",
+    }
+
+    -- 脚本同目录
+    local ok, scriptPath = pcall(gg.getFile)
+    if ok and scriptPath then
+        local dir = scriptPath:match("(.*/)")
+        if dir then
+            paths[#paths + 1] = dir .. ".unity_key"
+        end
+    end
+
+    -- 逐路径读取
+    for _, path in ipairs(paths) do
+        local f = io.open(path, "r")
+        if f then
+            local encoded = f:read("*a")
+            f:close()
+            if encoded and encoded ~= "" then
+                local key = _decodeActivation(encoded)
+                if key then return key end
+            end
+        end
+    end
+
+    -- gg.loadVariable
     if type(gg.loadVariable) == "function" then
         local ok2, val = pcall(gg.loadVariable, _SAVE_TAG)
         if ok2 and val and type(val) == "string" and val ~= "" then
@@ -393,6 +426,17 @@ end
 -- ============ 激活界面 ============
 
 function showActivation()
+    -- 检查加载器预注入的激活码
+    if _PRELOADED_ACT and _PRELOADED_ACT ~= "" then
+        local key = _decodeActivation(_PRELOADED_ACT)
+        if key and _verifyKey(key) then
+            _0t = _xc("UNLOCK", _0k)
+            _0v = true
+            gg.toast("✅ 已激活")
+            return true
+        end
+    end
+
     local savedKey = _loadActivation()
     if savedKey and _verifyKey(savedKey) then
         _0t = _xc("UNLOCK", _0k)
