@@ -1,6 +1,6 @@
 -- ============================================================
 -- ╔══════════════════════════════════════════════╗
--- ║   Unity Time.timeScale 加速器 v5.2          ║
+-- ║   Unity Time.timeScale 加速器 v5.2.4          ║
 -- ║   设备绑定激活 + 防篡改 + 云端更新           ║
 -- ║   署名: xy435116694754                      ║
 -- ╚══════════════════════════════════════════════╝
@@ -238,7 +238,7 @@ local _P = {
     author     = "554e4c4f434b494f020a01060402",
     app_name   = "785911080f9ff2d9ddb3aad4a89e",
     time_scale = "795e15192519191551",
-    unity_tag  = "785911080f9ff2d9ddb3aad4a89e164f011904",
+    unity_tag  = "785911080f9ff2d9ddb3aad4a89e164f0119071a19",
     about_info = "785911080f9ff2d9ddb3aad4a89e164f01",
 }
 
@@ -396,7 +396,7 @@ local isUnityGame = nil       -- nil=未检测, true=Unity, false=非Unity
 local unityDetectMsg = ""     -- 检测结果消息
 local searchResult = ""       -- 搜索结果消息
 local SAVE_TAG = "⚡TimeScale"
-local APP_VER = "v5.2"
+local APP_VER = "v5.2.4"
 
 local CLASSIC_COMBOS = {
     {0.1, 0.03}, {0.1, 0.04}, {0.333, 0.1}, {0.333, 0.06},
