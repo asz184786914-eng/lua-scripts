@@ -10,10 +10,18 @@ local LOCAL_FILE = "speed_hack.lua"
 gg.toast("🌐 正在加载脚本...")
 
 local function loadFromCloud()
-    local ok, code = pcall(function()
+    local ok, resp = pcall(function()
         return gg.makeRequest(CLOUD_URL)
     end)
-    if ok and code and type(code) == "string" and #code > 100 then
+    if not ok or not resp then return nil end
+
+    -- gg.makeRequest可能返回string或table，兼容处理
+    local code = resp
+    if type(resp) == "table" then
+        code = resp.content or resp.body or resp.string or resp[1]
+    end
+
+    if type(code) == "string" and #code > 100 and string.find(code, "timeScale") then
         return code
     end
     return nil
@@ -26,7 +34,7 @@ local function loadFromLocal()
     if not f then return nil end
     local code = f:read("*a")
     f:close()
-    if code and #code > 100 then return code end
+    if type(code) == "string" and #code > 100 then return code end
     return nil
 end
 
