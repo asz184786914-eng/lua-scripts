@@ -1,16 +1,18 @@
 -- ============================================================
---  Unity加速器 在线加载器 v5.2
---  多CDN源加载，国内无需VPN
+--  Unity加速器 在线加载器 v5.2.4
+--  多CDN源 + 重试 + 本地回退
 --  署名: xy435116694754
 -- ============================================================
 
 local CDN_URLS = {
-    "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua",
-    "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua",
-    "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua",
-    "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua",
+    {name = "jsDelivr国内", url = "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "Fastly节点",   url = "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "CF国内镜像",   url = "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "gcore节点",    url = "https://gcore.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "GitHub原始",   url = "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua"},
 }
 local LOCAL_FILE = "speed_hack.lua"
+local MAX_RETRY = 2  -- 每个源重试2次
 
 gg.toast("🌐 正在加载脚本...")
 
@@ -32,36 +34,75 @@ local function tryLoad(url)
 end
 
 local function loadFromLocal()
-    local dir = gg.getFile():match("(.*[/\\])") or "/sdcard/"
-    local path = dir .. LOCAL_FILE
-    local f = io.open(path, "r")
-    if not f then return nil end
-    local code = f:read("*a")
-    f:close()
-    if type(code) == "string" and #code > 100 then return code end
+    -- 尝试多个可能的位置
+    local paths = {
+        (gg.getFile():match("(.*[/\\])") or "/sdcard/") .. LOCAL_FILE,
+        "/sdcard/" .. LOCAL_FILE,
+        "/sdcard/自动精灵/" .. LOCAL_FILE,
+        "/sdcard/Download/" .. LOCAL_FILE,
+    }
+    for _, path in ipairs(paths) do
+        local f = io.open(path, "r")
+        if f then
+            local code = f:read("*a")
+            f:close()
+            if type(code) == "string" and #code > 100 and string.find(code, "timeScale") then
+                return code, path
+            end
+        end
+    end
     return nil
 end
 
--- 依次尝试各CDN源
+-- 依次尝试各CDN源，每个重试MAX_RETRY次
 local scriptCode = nil
-for i, url in ipairs(CDN_URLS) do
-    scriptCode = tryLoad(url)
-    if scriptCode then
-        gg.toast("✅ 加载成功 (源" .. i .. ")")
-        break
+local usedSource = ""
+
+for _, cdn in ipairs(CDN_URLS) do
+    for attempt = 1, MAX_RETRY do
+        gg.toast("📡 " .. cdn.name .. " (尝试" .. attempt .. "/" .. MAX_RETRY .. ")")
+        scriptCode = tryLoad(cdn.url)
+        if scriptCode then
+            usedSource = cdn.name
+            break
+        end
+        -- 重试间隔
+        if attempt < MAX_RETRY then
+            gg.sleep(1500)
+        end
     end
+    if scriptCode then break end
 end
 
 -- 全部CDN失败，尝试本地
 if not scriptCode then
-    gg.toast("⚠️ 云端加载失败，尝试本地...")
-    scriptCode = loadFromLocal()
+    gg.toast("⚠️ 所有云端源均失败，尝试本地...")
+    local localPath
+    scriptCode, localPath = loadFromLocal()
     if scriptCode then
+        usedSource = "本地: " .. (localPath or "")
         gg.toast("✅ 本地加载成功")
     else
-        gg.alert("❌ 加载失败！\n\n请检查网络连接或确保本地有 speed_hack.lua 文件")
+        gg.alert(
+            "━━━━━━━━━━━━━━━━━━━━━\n" ..
+            "  ❌ 脚本加载失败\n" ..
+            "━━━━━━━━━━━━━━━━━━━━━\n\n" ..
+            "  所有云端源和本地文件均不可用\n\n" ..
+            "  📱 解决方法：\n" ..
+            "  1. 检查网络连接（WiFi/流量）\n" ..
+            "  2. 如在国内，尝试开启VPN后重试\n" ..
+            "  3. 或手动下载 speed_hack.lua\n" ..
+            "     放到手机存储根目录\n\n" ..
+            "  📋 下载地址（任选一个）：\n" ..
+            "  · cdn.jsdelivr.net（国内直连）\n" ..
+            "  · raw.githubusercontent.com（需VPN）\n\n" ..
+            "  仓库: asz184786914-eng/lua-scripts\n" ..
+            "━━━━━━━━━━━━━━━━━━━━━"
+        )
         return
     end
+else
+    gg.toast("✅ 加载成功 (" .. usedSource .. ")")
 end
 
 local fn, err = load(scriptCode)
