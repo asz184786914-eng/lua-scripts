@@ -76,12 +76,22 @@ end
 
 -- 全部CDN失败，尝试本地
 if not scriptCode then
-    gg.toast("⚠️ 所有云端源均失败，尝试本地...")
     local localPath
     scriptCode, localPath = loadFromLocal()
+    gg.toast("⚠️ 网络连接失败，尝试调用本地文件...")
     if scriptCode then
-        usedSource = "本地: " .. (localPath or "")
-        gg.toast("✅ 本地加载成功")
+        usedSource = "本地"
+        gg.alert(
+            "━━━━━━━━━━━━━━━━━━━━━\n" ..
+            "  ⚠️ 网络连接失败\n" ..
+            "━━━━━━━━━━━━━━━━━━━━━\n\n" ..
+            "  已回退到本地文件\n\n" ..
+            "  📂 文件目录:\n" ..
+            "  " .. (localPath or "未知") .. "\n\n" ..
+            "  ⚠️ 本地文件可能不是最新版\n" ..
+            "  联网后建议删除本地文件\n" ..
+            "  让加载器自动获取更新\n" ..
+            "━━━━━━━━━━━━━━━━━━━━━")
     else
         gg.alert(
             "━━━━━━━━━━━━━━━━━━━━━\n" ..
