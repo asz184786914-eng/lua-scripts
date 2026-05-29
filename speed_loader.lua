@@ -5,14 +5,14 @@
 -- ============================================================
 
 local CDN_URLS = {
-    {name = "jsDelivr国内", url = "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
-    {name = "Fastly节点",   url = "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
-    {name = "CF国内镜像",   url = "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
-    {name = "gcore节点",    url = "https://gcore.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "jsDelivr国内", url = "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@9bac3d4/speed_hack.lua"},
+    {name = "Fastly节点",   url = "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@9bac3d4/speed_hack.lua"},
+    {name = "CF国内镜像",   url = "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@9bac3d4/speed_hack.lua"},
+    {name = "gcore节点",    url = "https://gcore.jsdelivr.net/gh/asz184786914-eng/lua-scripts@9bac3d4/speed_hack.lua"},
     {name = "GitHub原始",   url = "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua"},
 }
 local LOCAL_FILE = "speed_hack.lua"
-local MAX_RETRY = 2  -- 每个源重试2次
+local MAX_RETRY = 2
 
 gg.toast("🌐 正在加载脚本...")
 
@@ -34,7 +34,6 @@ local function tryLoad(url)
 end
 
 local function loadFromLocal()
-    -- 尝试多个可能的位置
     local paths = {
         (gg.getFile():match("(.*[/\\])") or "/sdcard/") .. LOCAL_FILE,
         "/sdcard/" .. LOCAL_FILE,
@@ -54,7 +53,7 @@ local function loadFromLocal()
     return nil
 end
 
--- 依次尝试各CDN源，每个重试MAX_RETRY次
+-- 依次尝试各CDN源
 local scriptCode = nil
 local usedSource = ""
 
@@ -66,7 +65,6 @@ for _, cdn in ipairs(CDN_URLS) do
             usedSource = cdn.name
             break
         end
-        -- 重试间隔
         if attempt < MAX_RETRY then
             gg.sleep(1500)
         end
@@ -76,9 +74,9 @@ end
 
 -- 全部CDN失败，尝试本地
 if not scriptCode then
+    gg.toast("⚠️ 网络连接失败，尝试调用本地文件...")
     local localPath
     scriptCode, localPath = loadFromLocal()
-    gg.toast("⚠️ 网络连接失败，尝试调用本地文件...")
     if scriptCode then
         usedSource = "本地"
         gg.alert(
@@ -91,7 +89,8 @@ if not scriptCode then
             "  ⚠️ 本地文件可能不是最新版\n" ..
             "  联网后建议删除本地文件\n" ..
             "  让加载器自动获取更新\n" ..
-            "━━━━━━━━━━━━━━━━━━━━━")
+            "━━━━━━━━━━━━━━━━━━━━━"
+        )
     else
         gg.alert(
             "━━━━━━━━━━━━━━━━━━━━━\n" ..
