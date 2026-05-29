@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unity加速器 激活码生成器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0a1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+.container {
+    max-width: 420px;
+    width: 100%;
+}
+.title-box {
+    text-align: center;
+    border: 1px solid #3a3a5c;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+}
+.title-box h1 {
+    font-size: 18px;
+    color: #7eb8ff;
+    margin-bottom: 4px;
+}
+.title-box p {
+    font-size: 12px;
+    color: #888;
+}
+.input-group {
+    margin-bottom: 20px;
+}
+.input-group label {
+    display: block;
+    font-size: 14px;
+    color: #aaa;
+    margin-bottom: 8px;
+}
+.input-group input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 20px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 3px;
+    text-align: center;
+    text-transform: uppercase;
+    background: #1a1a2e;
+    border: 2px solid #3a3a5c;
+    border-radius: 10px;
+    color: #fff;
+    outline: none;
+    transition: border-color 0.3s;
+}
+.input-group input:focus {
+    border-color: #7eb8ff;
+}
+.input-group input::placeholder {
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: #555;
+}
+.btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 12px;
+}
+.btn-gen {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+}
+.btn-gen:active {
+    transform: scale(0.97);
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+}
+.result-box {
+    display: none;
+    border: 1px solid #3a3a5c;
+    border-radius: 12px;
+    padding: 20px;
+    background: #1a1a2e;
+    text-align: center;
+    margin-bottom: 16px;
+}
+.result-box.show { display: block; }
+.result-label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+}
+.result-code {
+    font-size: 24px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 4px;
+    color: #4ade80;
+    font-weight: bold;
+    word-break: break-all;
+    padding: 12px;
+    background: #0d1117;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    user-select: all;
+}
+.btn-copy {
+    background: #1e293b;
+    color: #94a3b8;
+    font-size: 14px;
+    padding: 10px 20px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.btn-copy:active {
+    background: #334155;
+    color: #e2e8f0;
+}
+.error-box {
+    display: none;
+    border: 1px solid #7f1d1d;
+    border-radius: 10px;
+    padding: 14px;
+    background: #1c0a0a;
+    text-align: center;
+    color: #fca5a5;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+.error-box.show { display: block; }
+.history-box {
+    margin-top: 20px;
+    border: 1px solid #3a3a5c;
+    border-radius: 12px;
+    padding: 16px;
+    background: #1a1a2e;
+}
+.history-box h3 {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 12px;
+}
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: #0d1117;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+.history-dc { color: #7eb8ff; }
+.history-ak { color: #4ade80; }
+.history-time { color: #555; font-size: 10px; margin-top: 4px; }
+.btn-clear {
+    background: none;
+    border: 1px solid #7f1d1d;
+    color: #fca5a5;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="title-box">
+        <h1>🔑 激活码生成器 v5.1</h1>
+        <p>Unity加速器 · 署名: xy435116694754</p>
+    </div>
+
+    <div class="input-group">
+        <label>📋 设备码（用户提供的8位码）</label>
+        <input type="text" id="deviceCode" placeholder="XXXX-XXXX" maxlength="9"
+               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    </div>
+
+    <button class="btn btn-gen" onclick="generate()">⚡ 生成激活码</button>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <div class="result-box" id="resultBox">
+        <div class="result-label">✅ 激活码（发送给用户）</div>
+        <div class="result-code" id="resultCode"></div>
+        <button class="btn-copy" onclick="copyResult()">📋 复制激活码</button>
+    </div>
+
+    <div class="history-box" id="historyBox" style="display:none">
+        <h3>📜 生成记录</h3>
+        <div id="historyList"></div>
+        <button class="btn-clear" onclick="clearHistory()">🗑️ 清除记录</button>
+    </div>
+</div>
+
+<script>
+const B32 = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const MASTER_KEY = "xy435116694754";
+const ACTIVATION_SECRET = "SpeedHack2025XY";
+
+function xorEncode(data, key) {
+    const r = [];
+    for (let i = 0; i < data.length; i++) {
+        r.push(data[i] ^ key.charCodeAt(i % key.length));
+    }
+    return r;
+}
+
+function b32Encode(data) {
+    let bits = 0, val = 0, result = [];
+    for (let i = 0; i < data.length; i++) {
+        val = (val << 8) | data[i];
+        bits += 8;
+        while (bits >= 5) {
+            bits -= 5;
+            result.push(B32[(val >> bits) & 0x1F]);
+            val = val & ((1 << bits) - 1);
+        }
+    }
+    if (bits > 0) {
+        result.push(B32[(val & ((1 << bits) - 1)) << (5 - bits)]);
+    }
+    return result.join('');
+}
+
+function b32Decode(s) {
+    let result = [], val = 0, bits = 0;
+    for (let i = 0; i < s.length; i++) {
+        const idx = B32.indexOf(s[i].toUpperCase());
+        if (idx < 0) continue;
+        val = (val << 5) | idx;
+        bits += 5;
+        while (bits >= 8) {
+            bits -= 8;
+            result.push((val >> bits) & 0xFF);
+            val = val & ((1 << bits) - 1);
+        }
+    }
+    return result;
+}
+
+function fnv1a32(s, seed) {
+    seed = seed || 0x811c9dc5;
+    let h = seed >>> 0;
+    for (let i = 0; i < s.length; i++) {
+        h = ((h ^ s.charCodeAt(i)) >>> 0);
+        h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h;
+}
+
+function u32ToBytesLE(v) {
+    return [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF];
+}
+
+function fpHash(fpStr) {
+    const h1 = fnv1a32(fpStr, 0x811c9dc5);
+    const h2 = fnv1a32(fpStr, 0x1234abcd);
+    return [...u32ToBytesLE(h1), h2 & 0xFF]; // 5 bytes
+}
+
+function actHash(fpHex) {
+    const actInput = fpHex + ACTIVATION_SECRET;
+    const ah1 = fnv1a32(actInput, 0x5678ef01);
+    const ah2 = fnv1a32(actInput, 0x9abcdef0);
+    const ah3 = fnv1a32(actInput, 0x13579bdf);
+    return [...u32ToBytesLE(ah1), ...u32ToBytesLE(ah2), ...u32ToBytesLE(ah3).slice(0, 2)]; // 10 bytes
+}
+
+function formatCode(s, group) {
+    group = group || 4;
+    const r = [];
+    for (let i = 0; i < s.length; i += group) {
+        r.push(s.substring(i, i + group));
+    }
+    return r.join('-');
+}
+
+function decryptDeviceCode(dc) {
+    const clean = dc.toUpperCase().replace(/[\s\-]/g, '');
+    if (clean.length !== 8) return null;
+    const encrypted = b32Decode(clean);
+    if (encrypted.length < 5) return null;
+    const fpHashBytes = xorEncode(encrypted.slice(0, 5), MASTER_KEY.substring(0, 5));
+    return fpHashBytes.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateActivationKey(deviceCode) {
+    const fpHex = decryptDeviceCode(deviceCode);
+    if (!fpHex) return null;
+    const ah = actHash(fpHex);
+    const encrypted = xorEncode(ah, MASTER_KEY.substring(0, 10));
+    const code = b32Encode(encrypted);
+    return formatCode(code.substring(0, 16));
+}
+
+function generate() {
+    const dc = document.getElementById('deviceCode').value.trim();
+    const errorBox = document.getElementById('errorBox');
+    const resultBox = document.getElementById('resultBox');
+
+    errorBox.classList.remove('show');
+    resultBox.classList.remove('show');
+
+    if (!dc) {
+        errorBox.textContent = '❌ 请输入设备码';
+        errorBox.classList.add('show');
+        return;
+    }
+
+    const ak = generateActivationKey(dc);
+    if (!ak) {
+        errorBox.textContent = '❌ 设备码无效！格式: XXXX-XXXX';
+        errorBox.classList.add('show');
+        return;
+    }
+
+    document.getElementById('resultCode').textContent = ak;
+    resultBox.classList.add('show');
+
+    // 保存记录
+    saveHistory(dc.toUpperCase(), ak);
+}
+
+function copyResult() {
+    const code = document.getElementById('resultCode').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).catch(() => fallbackCopy(code));
+    } else {
+        fallbackCopy(code);
+    }
+}
+
+function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+}
+
+function saveHistory(dc, ak) {
+    let h = JSON.parse(localStorage.getItem('keygen_history') || '[]');
+    h.unshift({ dc, ak, time: new Date().toLocaleString() });
+    if (h.length > 20) h = h.slice(0, 20);
+    localStorage.setItem('keygen_history', JSON.stringify(h));
+    renderHistory();
+}
+
+function renderHistory() {
+    const h = JSON.parse(localStorage.getItem('keygen_history') || '[]');
+    const box = document.getElementById('historyBox');
+    const list = document.getElementById('historyList');
+    if (h.length === 0) { box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    list.innerHTML = h.map(item =>
+        `<div class="history-item">
+            <div>
+                <span class="history-dc">${item.dc}</span>
+                <span style="color:#555"> → </span>
+                <span class="history-ak">${item.ak}</span>
+                <div class="history-time">${item.time}</div>
+            </div>
+        </div>`
+    ).join('');
+}
+
+function clearHistory() {
+    localStorage.removeItem('keygen_history');
+    renderHistory();
+}
+
+// 页面加载时渲染历史
+renderHistory();
+
+// 回车键触发
+document.getElementById('deviceCode').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') generate();
+});
+</script>
+</body>
+</html>
