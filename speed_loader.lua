@@ -1,73 +1,55 @@
 -- ============================================================
--- ╔══════════════════════════════════════════════╗
--- ║   Unity加速器 - 在线加载器                    ║
--- ║   优先GitHub云端，失败用本地                   ║
--- ║   署名: xy435116694754                      ║
--- ╚══════════════════════════════════════════════╝
+--  Unity加速器 在线加载器 v5.1
+--  优先从GitHub云端加载主脚本，失败则使用本地文件
+--  署名: xy435116694754
 -- ============================================================
 
-local APP_NAME = "Unity加速器"
+local CLOUD_URL = "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua"
+local LOCAL_FILE = "speed_hack.lua"
 
--- ====== 远程脚本地址 ======
-local SCRIPT_URLS = {
-    "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua",
-}
+gg.toast("🌐 正在加载脚本...")
 
--- ====== 尝试云端加载 ======
-function tryCloudLoad()
-    for i, url in ipairs(SCRIPT_URLS) do
-        gg.toast("☁️ 加载云端源 " .. i .. "/" .. #SCRIPT_URLS)
-        local ok, response = pcall(function()
-            return gg.makeRequest(url)
-        end)
-        if ok and response and response ~= "" then
-            if string.find(response, "timeScale") then
-                local func, err = loadstring(response)
-                if func then
-                    local ver = string.match(response, 'APP_VER%s*=%s*"([^"]+)"') or "?"
-                    gg.toast("✅ 云端 " .. ver .. " 加载成功！")
-                    return func
-                end
-            end
-        end
+local function loadFromCloud()
+    local ok, code = pcall(function()
+        return gg.makeRequest(CLOUD_URL)
+    end)
+    if ok and code and type(code) == "string" and #code > 100 then
+        return code
     end
     return nil
 end
 
--- ====== 本地加载 ======
-function runLocal()
-    local localPath = gg.getFile():match("(.*[/\\])") .. "speed_hack.lua"
-    local f = io.open(localPath, "r")
-    if f then
-        local content = f:read("*a")
-        f:close()
-        local func = loadstring(content)
-        if func then
-            gg.toast("📁 本地版加载成功")
-            func()
-            return true
-        end
-    end
-    return false
+local function loadFromLocal()
+    local dir = gg.getFile():match("(.*[/\\])") or "/sdcard/"
+    local path = dir .. LOCAL_FILE
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local code = f:read("*a")
+    f:close()
+    if code and #code > 100 then return code end
+    return nil
 end
 
--- ====== 主逻辑 ======
-gg.toast("⚡ " .. APP_NAME .. " 启动中...")
+-- 优先云端
+local scriptCode = loadFromCloud()
 
-local cloudFunc = tryCloudLoad()
-if cloudFunc then
-    cloudFunc()
+if scriptCode then
+    gg.toast("✅ 云端加载成功")
 else
-    gg.toast("☁️ 云端不可用，切换本地...")
-    if not runLocal() then
-        local c = gg.choice(
-            {"🔄  重试云端", "❌  退出"},
-            nil,
-            "⚠️ 加载失败\n\n云端不可用\n本地未找到 speed_hack.lua\n\n请检查网络或将主脚本放同目录"
-        )
-        if c == 1 then
-            local retry = tryCloudLoad()
-            if retry then retry() else gg.alert("❌ 重试失败") end
-        end
+    gg.toast("⚠️ 云端加载失败，尝试本地...")
+    scriptCode = loadFromLocal()
+    if scriptCode then
+        gg.toast("✅ 本地加载成功")
+    else
+        gg.alert("❌ 加载失败！\n\n请检查网络连接或确保本地有 speed_hack.lua 文件")
+        return
     end
+end
+
+-- 执行主脚本
+local fn, err = load(scriptCode)
+if fn then
+    fn()
+else
+    gg.alert("❌ 脚本解析错误:\n" .. tostring(err))
 end
