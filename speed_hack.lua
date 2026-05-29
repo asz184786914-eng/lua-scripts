@@ -318,7 +318,6 @@ function showActivation()
         _0t = _xc("UNLOCK", _0k)
         _0v = true
         gg.toast("✅ 已激活")
-    return true
         return true
     end
 
@@ -326,8 +325,7 @@ function showActivation()
 
     while true do
         local input = gg.prompt(
-            {"🔑 请输入激活码 (格式: XXXX-XXXX-XXXX-XXXX)"}
-        -- 标题已含署名版本,
+            {"🔑 请输入激活码 (格式: XXXX-XXXX-XXXX-XXXX)"},
             {""},
             {"text"}
         )
