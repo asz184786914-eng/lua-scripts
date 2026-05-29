@@ -318,6 +318,7 @@ function showActivation()
         _0t = _xc("UNLOCK", _0k)
         _0v = true
         gg.toast("✅ 已激活")
+    return true
         return true
     end
 
@@ -325,7 +326,8 @@ function showActivation()
 
     while true do
         local input = gg.prompt(
-            {"🔑 请输入激活码 (格式: XXXX-XXXX-XXXX-XXXX)"},
+            {"🔑 请输入激活码 (格式: XXXX-XXXX-XXXX-XXXX)"}
+        -- 标题已含署名版本,
             {""},
             {"text"}
         )
@@ -334,7 +336,7 @@ function showActivation()
             local c = gg.choice(
                 {"🔑  重新输入激活码", "📋  复制设备码", "❌  退出脚本"},
                 nil,
-                "⚠️ 未输入激活码\n\n" ..
+                "Unity加速器 v5.2.4 | xy435116694754\n━━━━━━━━━━━━━━━━━━━━━\n\n⚠️ 未输入激活码\n\n" ..
                 "📋 你的设备码:\n" ..
                 "━━━━━━━━━━━━━━\n" ..
                 deviceCode .. "\n" ..
@@ -356,6 +358,8 @@ function showActivation()
                 _saveActivation(key)
                 gg.alert(
                     "━━━━━━━━━━━━━━━━━━━━━\n" ..
+                    "  Unity加速器 v5.2.4 | xy435116694754\n" ..
+                    "━━━━━━━━━━━━━━━━━━━━━\n" ..
                     "  ✅ 激活成功！\n" ..
                     "━━━━━━━━━━━━━━━━━━━━━\n\n" ..
                     "  激活码已绑定当前设备\n" ..
@@ -368,7 +372,7 @@ function showActivation()
                 local c = gg.choice(
                     {"🔑  重新输入", "📋  复制设备码", "❌  退出"},
                     nil,
-                    "❌ 激活码无效\n\n" ..
+                    "Unity加速器 v5.2.4 | xy435116694754\n━━━━━━━━━━━━━━━━━━━━━\n\n❌ 激活码无效\n\n" ..
                     "📋 你的设备码:\n" ..
                     "━━━━━━━━━━━━━━\n" ..
                     deviceCode .. "\n" ..
