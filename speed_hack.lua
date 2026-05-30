@@ -575,7 +575,7 @@ function searchTimeScale()
     if KEEP < 10 then KEEP = 10 end
 
     -- 分批处理所有结果
-    local BATCH = 10000
+    local BATCH = 50000
     local offset = 0
 
     while offset < count do
