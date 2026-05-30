@@ -768,6 +768,7 @@ function searchTimeScale()
     end
 
     gg.clearResults()
+    gg.toast("⏳ 评分排序中，请稍等...")
 
     -- 按得分排序
     table.sort(candidates, function(a, b) return a.score > b.score end)
