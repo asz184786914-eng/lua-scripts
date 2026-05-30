@@ -529,6 +529,123 @@ local searchResult = ""       -- 搜索结果消息
 local SAVE_TAG = "⚡TimeScale"
 local APP_VER = "v5.2.7"
 
+-- ============ Unity引擎检测 ============
+
+local isUnityGame = nil       -- nil=未检测, true=Unity, false=非Unity
+local unityLevel = -1          -- -1=未检测, 0-4 可信度等级
+local unityDetectMsg = ""     -- 检测结果消息
+
+function detectUnity()
+    local pkg = gg.getSelectedPackage()
+    if not pkg then return false, 0, "未选中进程" end
+
+    local coreFeatures = {
+        {name = "libunity.so", sig = "h 6C 69 62 75 6E 69 74 79 2E 73 6F"},
+        {name = "UnityEngine.Time", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65 2E 54 69 6D 65"},
+    }
+
+    local auxFeatures = {
+        {name = "Time.timeScale", sig = "h 54 69 6D 65 2E 74 69 6D 65 53 63 61 6C 65"},
+        {name = "Time.fixedDeltaTime", sig = "h 54 69 6D 65 2E 66 69 78 65 64 44 65 6C 74 61 54 69 6D 65"},
+        {name = "Time.maximumDeltaTime", sig = "h 54 69 6D 65 2E 6D 61 78 69 6D 75 6D 44 65 6C 74 61 54 69 6D 65"},
+        {name = "UnityEngine", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65"},
+        {name = "libil2cpp.so", sig = "h 6C 69 62 69 6C 32 63 70 70 2E 73 6F"},
+    }
+
+    -- 检测核心特征
+    local coreFound = {}
+    local coreHitCount = 0
+    for _, feat in ipairs(coreFeatures) do
+        gg.clearResults()
+        gg.searchNumber(feat.sig, gg.TYPE_BYTE)
+        local found = gg.getResultsCount()
+        gg.clearResults()
+        coreFound[feat.name] = (found > 0)
+        if found > 0 then coreHitCount = coreHitCount + 1 end
+    end
+
+    -- 检测辅助特征
+    local auxFound = {}
+    local auxHitCount = 0
+    for _, feat in ipairs(auxFeatures) do
+        gg.clearResults()
+        gg.searchNumber(feat.sig, gg.TYPE_BYTE)
+        local found = gg.getResultsCount()
+        gg.clearResults()
+        auxFound[feat.name] = (found > 0)
+        if found > 0 then auxHitCount = auxHitCount + 1 end
+    end
+
+    local totalHits = coreHitCount + auxHitCount
+    local total = #coreFeatures + #auxFeatures
+
+    -- 可信度判定
+    local level, label, isUnity
+    if totalHits >= 6 then
+        level = 4; label = "🟢 高可信度"; isUnity = true
+    elseif totalHits >= 4 then
+        level = 3; label = "🟡 中可信度"; isUnity = true
+    elseif totalHits >= 2 then
+        level = 2; label = "🟠 低可信度"; isUnity = nil
+    elseif totalHits == 1 then
+        level = 1; label = "🔴 疑似非Unity"; isUnity = false
+    else
+        level = 0; label = "⚫ 非Unity"; isUnity = false
+    end
+
+    -- 构建详情
+    local detail = label .. " (" .. totalHits .. "/" .. total .. ")\n\n"
+    detail = detail .. "核心验证 (" .. coreHitCount .. "/" .. #coreFeatures .. ")\n"
+    for _, feat in ipairs(coreFeatures) do
+        if coreFound[feat.name] then
+            detail = detail .. "  ✅ " .. feat.name .. "\n"
+        else
+            detail = detail .. "  ❌ " .. feat.name .. "\n"
+        end
+    end
+
+    detail = detail .. "\n辅助验证 (" .. auxHitCount .. "/" .. #auxFeatures .. ")\n"
+    for _, feat in ipairs(auxFeatures) do
+        if auxFound[feat.name] then
+            detail = detail .. "  ✅ " .. feat.name .. "\n"
+        else
+            detail = detail .. "  ❌ " .. feat.name .. "\n"
+        end
+    end
+
+    return isUnity, level, detail
+end
+
+function runUnityDetect()
+    gg.toast("🔍 正在检测Unity引擎...")
+    local isUnity, level, detail = detectUnity()
+    isUnityGame = isUnity
+    unityDetectMsg = detail
+
+    local advice = ""
+    if level == 4 then
+        advice = "所有特征命中，请尝试使用"
+    elseif level == 3 then
+        advice = "大部分特征命中，可进行尝试"
+    elseif level == 2 then
+        advice = "🟠 命中特征较少，可能不是Unity\n加速功能可能无效，建议手动确认"
+    elseif level == 1 then
+        advice = "🔴 仅1个特征命中，疑似非Unity\n加速功能大概率无效"
+    else
+        advice = "⚫ 未检测到任何Unity特征\n加速功能无效"
+    end
+
+    gg.alert(
+        "─────────────────────\n" ..
+        "🔍 Unity引擎检测\n" ..
+        "─────────────────────\n\n" ..
+        detail .. "\n" ..
+        advice
+    )
+end
+
+-- ============ 搜索功能 ============
+
 local CLASSIC_COMBOS = {
     {0.1, 0.03},
     {0.1, 0.04},
