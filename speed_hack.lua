@@ -539,81 +539,120 @@ local CLASSIC_COMBOS = {
 
 function detectUnity()
     local pkg = gg.getSelectedPackage()
-    if not pkg then return false, "未选中进程" end
+    if not pkg then return false, 0, "未选中进程" end
 
-    local coreFeatures = {
-        {name = "libunity.so", sig = "h 6C 69 62 75 6E 69 74 79 2E 73 6F"},
-        {name = "UnityEngine.Time", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65 2E 54 69 6D 65"},
+    local allFeatures = {
+        -- 核心特征 (权重2)
+        {name = "libunity.so", sig = "h 6C 69 62 75 6E 69 74 79 2E 73 6F", core = true},
+        {name = "UnityEngine.Time", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65 2E 54 69 6D 65", core = true},
+        -- 辅助特征 (权重1)
+        {name = "Time.timeScale", sig = "h 54 69 6D 65 2E 74 69 6D 65 53 63 61 6C 65", core = false},
+        {name = "Time.fixedDeltaTime", sig = "h 54 69 6D 65 2E 66 69 78 65 64 44 65 6C 74 61 54 69 6D 65", core = false},
+        {name = "Time.maximumDeltaTime", sig = "h 54 69 6D 65 2E 6D 61 78 69 6D 75 6D 44 65 6C 74 61 54 69 6D 65", core = false},
+        {name = "UnityEngine", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65", core = false},
+        -- IL2CPP
+        {name = "libil2cpp.so", sig = "h 6C 69 62 69 6C 32 63 70 70 2E 73 6F", core = false},
     }
 
-    local auxFeatures = {
-        {name = "Time.timeScale", sig = "h 54 69 6D 65 2E 74 69 6D 65 53 63 61 6C 65"},
-        {name = "Time.fixedDeltaTime", sig = "h 54 69 6D 65 2E 66 69 78 65 64 44 65 6C 74 61 54 69 6D 65"},
-        {name = "Time.maximumDeltaTime", sig = "h 54 69 6D 65 2E 6D 61 78 69 6D 75 6D 44 65 6C 74 61 54 69 6D 65"},
-        {name = "UnityEngine", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65"},
-    }
-
-    local il2cpp = {name = "libil2cpp.so", sig = "h 6C 69 62 69 6C 32 63 70 70 2E 73 6F"}
-
-    for _, feat in ipairs(coreFeatures) do
-        gg.clearResults()
-        gg.searchNumber(feat.sig, gg.TYPE_BYTE)
-        local found = gg.getResultsCount()
-        gg.clearResults()
-        if found > 0 then
-            return true, "✅ 核心特征命中: " .. feat.name
-        end
-    end
-
+    local coreHits = {}
     local auxHits = {}
-    for _, feat in ipairs(auxFeatures) do
+    local totalHits = 0
+
+    for _, feat in ipairs(allFeatures) do
         gg.clearResults()
         gg.searchNumber(feat.sig, gg.TYPE_BYTE)
         local found = gg.getResultsCount()
         gg.clearResults()
         if found > 0 then
-            auxHits[#auxHits + 1] = feat.name
+            totalHits = totalHits + 1
+            if feat.core then
+                coreHits[#coreHits + 1] = feat.name
+            else
+                auxHits[#auxHits + 1] = feat.name
+            end
         end
     end
 
-    if #auxHits >= 2 then
-        return true, "✅ 辅助特征命中×" .. #auxHits .. ": " .. table.concat(auxHits, ", ")
+    -- 可信度判定
+    local total = #allFeatures
+    local level, label, isUnity
+
+    if totalHits == total then
+        level = 4  -- 高可信度
+        label = "🟢 高可信度Unity"
+        isUnity = true
+    elseif totalHits >= 4 then
+        level = 3  -- 中可信度
+        label = "🟡 中可信度Unity"
+        isUnity = true
+    elseif totalHits >= 1 then
+        level = 2  -- 低可信度
+        label = "🟠 低可信度"
+        isUnity = nil  -- 不确定
+    elseif #coreHits == 1 then
+        level = 1  -- 疑似非Unity
+        label = "🔴 疑似非Unity"
+        isUnity = false
+    else
+        level = 0  -- 非Unity
+        label = "⚫ 非Unity"
+        isUnity = false
     end
 
-    gg.clearResults()
-    gg.searchNumber(il2cpp.sig, gg.TYPE_BYTE)
-    local il2cppFound = gg.getResultsCount()
-    gg.clearResults()
-    if il2cppFound > 0 and #auxHits >= 1 then
-        return true, "✅ IL2CPP + 辅助特征命中"
+    -- 修正：0个命中但有1个核心不会出现（0命中=0核心），调整逻辑
+    if totalHits == 0 then
+        level = 0
+        label = "⚫ 非Unity"
+        isUnity = false
+    elseif #coreHits >= 1 and totalHits < 3 then
+        -- 只有1-2个核心但辅助全没中，疑似非Unity
+        level = 1
+        label = "🔴 疑似非Unity (核心命中但辅助缺失)"
+        isUnity = false
     end
 
-    return false, "❌ 未检测到Unity引擎特征"
+    local detail = ""
+    if #coreHits > 0 then
+        detail = detail .. "核心: " .. table.concat(coreHits, ", ") .. " "
+    end
+    if #auxHits > 0 then
+        detail = detail .. "辅助: " .. table.concat(auxHits, ", ")
+    end
+    if totalHits == 0 then
+        detail = "无任何特征命中"
+    end
+
+    local msg = label .. " (" .. totalHits .. "/" .. total .. ")\n" .. detail
+
+    return isUnity, level, msg
 end
 
 function runUnityDetect()
     gg.toast("🔍 正在检测Unity引擎...")
-    local isUnity, msg = detectUnity()
+    local isUnity, level, msg = detectUnity()
     isUnityGame = isUnity
     unityDetectMsg = msg
-    if isUnity then
-        gg.alert(
-            "━━━━━━━━━━━━━━━━━━━━━\n" ..
-            "  🔍 Unity引擎检测\n" ..
-            "━━━━━━━━━━━━━━━━━━━━━\n\n" ..
-            msg .. "\n\n" ..
-            "  可以使用加速功能 ✅"
-        )
+
+    local advice = ""
+    if level == 4 then
+        advice = "🟢 所有特征命中，可放心使用加速功能"
+    elseif level == 3 then
+        advice = "🟡 大部分特征命中，加速功能可用"
+    elseif level == 2 then
+        advice = "🟠 命中特征较少，可能不是Unity游戏\n加速功能可能无效，建议手动确认"
+    elseif level == 1 then
+        advice = "🔴 核心命中但辅助缺失，疑似非Unity\n加速功能大概率无效"
     else
-        gg.alert(
-            "━━━━━━━━━━━━━━━━━━━━━\n" ..
-            "  🔍 Unity引擎检测\n" ..
-            "━━━━━━━━━━━━━━━━━━━━━\n\n" ..
-            msg .. "\n\n" ..
-            "  ⚠️ 本脚本仅适用于Unity游戏\n" ..
-            "  加速功能可能无效"
-        )
+        advice = "⚫ 未检测到任何Unity特征\n加速功能无效"
     end
+
+    gg.alert(
+        "─────────────────────\n" ..
+        "🔍 Unity引擎检测\n" ..
+        "─────────────────────\n\n" ..
+        msg .. "\n\n" ..
+        advice
+    )
 end
 
 -- ============ 搜索功能 ============
@@ -926,7 +965,9 @@ function showMenu()
     -- Unity检测状态
     local unityStatus = "❓ 未检测"
     if isUnityGame == true then
-        unityStatus = "✅ Unity游戏"
+        unityStatus = "🟢 Unity"
+    elseif isUnityGame == nil and unityDetectMsg ~= "" then
+        unityStatus = "🟠 待确认"
     elseif isUnityGame == false then
         unityStatus = "❌ 非Unity"
     end
