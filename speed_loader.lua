@@ -1,14 +1,14 @@
 -- ============================================================
---  Unity加速器 在线加载器 v5.2.7
+--  Unity加速器 在线加载器 v5.2.8
 --  多CDN源 + 重试 + 本地回退
 --  署名: xy435116694754
 -- ============================================================
 
 local CDN_URLS = {
-    {name = "jsDelivr国内", url = "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
-    {name = "Fastly节点",   url = "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
-    {name = "CF国内镜像",   url = "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
-    {name = "gcore节点",    url = "https://gcore.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
+    {name = "jsDelivr国内", url = "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "Fastly节点",   url = "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "CF国内镜像",   url = "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
+    {name = "gcore节点",    url = "https://gcore.jsdelivr.net/gh/asz184786914-eng/lua-scripts@main/speed_hack.lua"},
     {name = "GitHub原始",   url = "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua"},
 }
 local LOCAL_FILE = "speed_hack.lua"
@@ -161,7 +161,7 @@ if not scriptCode then
         return
     end
 else
-    gg.toast("✅ v5.2.7 加载成功 [" .. usedSource .. "]")
+    gg.toast("✅ v5.2.8 加载成功 [" .. usedSource .. "]")
 end
 
 -- 注入预读取的激活码到主脚本
