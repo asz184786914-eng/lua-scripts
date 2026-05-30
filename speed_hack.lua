@@ -739,66 +739,71 @@ function searchTimeScale()
 
     gg.toast("找到 " .. count .. " 个1.0f，开始评分...")
 
-    local BATCH = 50000
+    -- 分批处理所有结果（与v3.2一致）
+    local BATCH = 10000
     local offset = 0
 
     while offset < count do
         local batchCount = math.min(BATCH, count - offset)
         local results = gg.getResults(batchCount, offset)
 
-        local resultIdx = 1
-        while resultIdx <= #results do
-            local batchEnd = math.min(resultIdx + 499, #results)
-            local readList = {}
-            for i = resultIdx, batchEnd do
-                readList[#readList + 1] = {address = results[i].address + 4, flags = gg.TYPE_FLOAT, value = 0}
-                readList[#readList + 1] = {address = results[i].address + 8, flags = gg.TYPE_FLOAT, value = 0}
-            end
-            local vals = gg.getValues(readList)
+        -- 批量读取+4和+8（一次性，不分小批）
+        local readList = {}
+        for i = 1, #results do
+            readList[#readList + 1] = {address = results[i].address + 4, flags = gg.TYPE_FLOAT}
+            readList[#readList + 1] = {address = results[i].address + 8, flags = gg.TYPE_FLOAT}
+        end
+        local vals = gg.getValues(readList)
 
-            for i = resultIdx, batchEnd do
-                local val2 = vals[(i - resultIdx) * 2 + 1].value
-                local val3 = vals[(i - resultIdx) * 2 + 2].value
-                local score = calcScore(val2, val3)
-
-                if score > 0 then
-                    candidates[#candidates + 1] = {
-                        address = results[i].address,
-                        value = results[i].value,
-                        score = score,
-                        nextVals = {val2, val3}
-                    }
-                end
-            end
-
-            resultIdx = batchEnd + 1
+        for i = 1, #results do
+            local val2 = vals[(i - 1) * 2 + 1].value
+            local val3 = vals[(i - 1) * 2 + 2].value
+            local score = calcScore(val2, val3)
+            -- 所有结果都加入，不筛选score>0
+            candidates[#candidates + 1] = {
+                address = results[i].address,
+                value = results[i].value,
+                score = score,
+                nextVals = {val2, val3}
+            }
         end
 
         offset = offset + batchCount
-        gg.toast("🔍 已扫描 " .. math.min(offset, count) .. "/" .. count)
+        gg.toast("🔍 评分进度: " .. math.min(offset, count) .. "/" .. count)
     end
 
     gg.clearResults()
 
+    -- 按得分排序
+    table.sort(candidates, function(a, b) return a.score > b.score end)
+
+    -- 只保留前maxCandidates个
+    if #candidates > maxCandidates then
+        local trimmed = {}
+        for i = 1, maxCandidates do trimmed[i] = candidates[i] end
+        candidates = trimmed
+    end
+
     if #candidates == 0 then
-        searchResult = "❌ " .. count .. "个1.0F, 无匹配"
-        gg.alert("❌ 未找到合适的候选地址\n\n搜到 " .. count .. " 个1.0F，但无经典组合匹配")
+        searchResult = "❌ 无候选地址"
+        gg.alert("❌ 未找到合适的候选地址")
         return
     end
 
-    table.sort(candidates, function(a, b) return a.score > b.score end)
-
-    if #candidates > maxCandidates then
-        candidates = {table.unpack(candidates, 1, maxCandidates)}
-    end
-
     searchResult = "🔍 " .. #candidates .. "个候选"
-    gg.alert(
-        "✅ 找到 " .. #candidates .. " 个候选地址\n\n" ..
-        "最高分: " .. candidates[1].score .. "\n" ..
-        "地址: " .. string.format("0x%X", candidates[1].address) .. "\n\n" ..
-        "开始二分法确认..."
-    )
+    local info = "✅ 评分完成！\n\n" ..
+        "搜到 " .. count .. " 个1.0f\n" ..
+        "候选 " .. #candidates .. " 个（保留前" .. maxCandidates .. "）\n" ..
+        "最高分: " .. candidates[1].score
+    if #candidates > 0 then
+        info = info .. "\n\nTOP3:\n"
+        for i = 1, math.min(3, #candidates) do
+            info = info .. string.format("#%d 得分:%d +4:%.6f +8:%.6f\n",
+                i, candidates[i].score, candidates[i].nextVals[1], candidates[i].nextVals[2])
+        end
+    end
+    info = info .. "\n开始二分法确认..."
+    gg.alert(info)
 
     binarySearch()
 end
