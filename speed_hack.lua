@@ -523,6 +523,7 @@ local speedAddr = nil
 local currentSpeed = 1.0
 local candidates = {}
 local isUnityGame = nil       -- nil=未检测, true=Unity, false=非Unity
+local unityLevel = -1          -- -1=未检测, 0-4 可信度等级
 local unityDetectMsg = ""     -- 检测结果消息
 local searchResult = ""       -- 搜索结果消息
 local SAVE_TAG = "⚡TimeScale"
@@ -623,6 +624,7 @@ function runUnityDetect()
     gg.toast("🔍 正在检测Unity引擎...")
     local isUnity, level, detail = detectUnity()
     isUnityGame = isUnity
+    unityLevel = level
     unityDetectMsg = detail
 
     local advice = ""
@@ -956,12 +958,13 @@ function showMenu()
 
     -- Unity检测状态
     local unityStatus = "❓ 未检测"
+    local levelLabels = {[0]="⚫非Unity", [1]="🔴疑似非Unity", [2]="🟠低可信度", [3]="🟡中可信度", [4]="🟢高可信度"}
     if isUnityGame == true then
-        unityStatus = "🟢 Unity"
+        unityStatus = "🟢 Unity(" .. (levelLabels[unityLevel] or "") .. ")"
     elseif isUnityGame == nil and unityDetectMsg ~= "" then
-        unityStatus = "🟠 待确认"
+        unityStatus = "🟠 待确认(" .. (levelLabels[unityLevel] or "") .. ")"
     elseif isUnityGame == false then
-        unityStatus = "❌ 非Unity"
+        unityStatus = "❌ 非Unity(" .. (levelLabels[unityLevel] or "") .. ")"
     end
 
     local c = gg.choice(
