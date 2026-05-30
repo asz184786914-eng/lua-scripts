@@ -1032,6 +1032,15 @@ end
 
 -- ============ 加速功能 ============
 
+function readCurrentSpeed()
+    if not speedAddr then return 1.0 end
+    local ok, vals = pcall(gg.getValues, {{address = speedAddr, flags = gg.TYPE_FLOAT}})
+    if ok and vals and vals[1] then
+        return vals[1].value
+    end
+    return currentSpeed
+end
+
 function setSpeed(multiplier)
     if not speedAddr then
         gg.toast("❌ 请先搜索地址")
@@ -1067,7 +1076,7 @@ function showSpeedMenu()
         {"⚡  2x 加速", "⚡  3x 加速", "⚡  5x 加速", "⚡  10x 加速",
          "⚡  自定义倍速", "🔄  恢复正常", "🔙  返回主菜单"},
         nil,
-        "⚡ " .. _gs("time_scale") .. " 加速\n\n当前: " .. currentSpeed .. "x\n地址: " .. (speedAddr and string.format("0x%X", speedAddr) or "无")
+        "⚡ " .. _gs("time_scale") .. " 加速\n\n当前: " .. readCurrentSpeed() .. "x\n地址: " .. (speedAddr and string.format("0x%X", speedAddr) or "无")
     )
 
     if c == 1 then setSpeed(2.0)
@@ -1098,7 +1107,7 @@ function showMenu()
     -- 搜索状态
     local status = searchResult
     if status == "" then
-        status = speedAddr and ("✅ " .. currentSpeed .. "x") or "❌ 未搜索"
+        status = speedAddr and ("✅ " .. readCurrentSpeed() .. "x") or "❌ 未搜索"
     end
 
     -- Unity检测状态
