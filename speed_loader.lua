@@ -161,12 +161,12 @@ if not scriptCode then
         return
     end
 else
-    gg.toast("✅ 加载成功 (" .. usedSource .. ")")
+    gg.toast("✅ v5.2.7 加载成功 [" .. usedSource .. "]")
 end
 
 -- 注入预读取的激活码到主脚本
 if _savedActData and scriptCode then
-    scriptCode = "_PRELOADED_ACT = [[" .. _savedActData .. "]]\n" .. scriptCode
+    scriptCode = "LOADER_VER = \"v5.2.7\"\n" .. "_PRELOADED_ACT = [[" .. _savedActData .. "]]\n" .. scriptCode
 end
 
 local fn, err = load(scriptCode)
