@@ -5,10 +5,10 @@
 -- ============================================================
 
 local CDN_URLS = {
-    {name = "jsDelivr国内", url = "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@cbf041b/speed_hack.lua"},
-    {name = "Fastly节点",   url = "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@cbf041b/speed_hack.lua"},
-    {name = "CF国内镜像",   url = "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@cbf041b/speed_hack.lua"},
-    {name = "gcore节点",    url = "https://gcore.jsdelivr.net/gh/asz184786914-eng/lua-scripts@cbf041b/speed_hack.lua"},
+    {name = "jsDelivr国内", url = "https://cdn.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
+    {name = "Fastly节点",   url = "https://fastly.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
+    {name = "CF国内镜像",   url = "https://testingcf.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
+    {name = "gcore节点",    url = "https://gcore.jsdelivr.net/gh/asz184786914-eng/lua-scripts@7b48129/speed_hack.lua"},
     {name = "GitHub原始",   url = "https://raw.githubusercontent.com/asz184786914-eng/lua-scripts/main/speed_hack.lua"},
 }
 local LOCAL_FILE = "speed_hack.lua"
