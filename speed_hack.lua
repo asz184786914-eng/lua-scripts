@@ -261,7 +261,7 @@ local _SAVE_TAG = "unity_act"  -- gg.saveVariable 的 key
 
 local function _encodeActivation(actKey)
     local fp = _getDeviceFP()
-    local data = fp .. "|" .. actKey
+    local data = fp .. "#" .. actKey
     local encoded = ""
     for i = 1, #data do
         encoded = encoded .. string.format("%02x", _bx(string.byte(data, i), string.byte(_0k, (i - 1) % #_0k + 1)))
@@ -273,8 +273,8 @@ local function _decodeActivation(encoded)
     if not encoded or encoded == "" then return nil end
     local raw = _fh(encoded)
     local decoded = _xc(raw, _0k)
-    local savedFP = decoded:match("^(.+)|")
-    local savedKey = decoded:match("|(.+)$")
+    local savedFP = decoded:match("^(.+)#")
+    local savedKey = decoded:match("#(.+)$")
     if not savedFP or not savedKey then return nil end
     local currentFP = _getDeviceFP()
     if savedFP ~= currentFP then return nil end
