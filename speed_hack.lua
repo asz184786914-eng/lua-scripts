@@ -862,20 +862,29 @@ function testSingle(idx)
 end
 
 function saveToGGList(item)
-    if not _ggListOk then
-        gg.toast("⚠️ GG列表不可用，地址: " .. string.format("0x%X", item.address))
-        return
-    end
     local pkg = gg.getSelectedPackage() or ""
-    local note = pkg .. "|" .. string.format("0x%X", item.address) .. "|" .. _gs("author")
-    local entry = {
+    local note = "TimeScale | " .. pkg .. " | " .. string.format("0x%X", item.address)
+    -- 先清除旧的保存项
+    local ok, items = pcall(gg.getListItems)
+    if ok and items then
+        local toRemove = {}
+        for i = 1, #items do
+            if items[i].name and string.find(items[i].name, "TimeScale") then
+                toRemove[#toRemove + 1] = i
+            end
+        end
+        if #toRemove > 0 then
+            pcall(gg.removeListItems, toRemove)
+        end
+    end
+    -- 添加到GG地址列表
+    pcall(gg.addListItems, {{
         address = item.address,
         flags = gg.TYPE_FLOAT,
-        value = item.value,
-        name = SAVE_TAG,
-        tag = note
-    }
-    _addSavedItems({entry})
+        name = note,
+        value = 1.0
+    }})
+    gg.toast("📋 已保存到GG地址列表")
 end
 
 function loadFromGGList()
