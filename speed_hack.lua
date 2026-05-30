@@ -555,6 +555,32 @@ function searchTimeScale()
         return
     end
 
+    -- 选择是否指定地址范围
+    local rangeChoice = gg.choice(
+        {"🔍 全范围搜索", "📍 指定地址范围"},
+        1,
+        "选择搜索范围"
+    )
+    if not rangeChoice then return end
+
+    local addrStart = nil
+    local addrEnd = nil
+
+    if rangeChoice == 2 then
+        local rangeInput = gg.prompt(
+            {"起始地址 (hex, 如 6c0c000000)", "结束地址 (hex, 如 6f2e8cffff)"},
+            {"0", "FFFFFFFFFFFFFFFF"},
+            {"text", "text"}
+        )
+        if not rangeInput then return end
+        addrStart = tonumber(rangeInput[1], 16)
+        addrEnd = tonumber(rangeInput[2], 16)
+        if not addrStart or not addrEnd or addrStart >= addrEnd then
+            gg.alert("❌ 地址范围无效\n请确保起始地址 < 结束地址")
+            return
+        end
+    end
+
     candidates = {}
 
     gg.toast("🔍 搜索中...")
@@ -564,6 +590,77 @@ function searchTimeScale()
     if count == 0 then
         searchResult = "❌ 未找到1.0F"
         gg.alert("❌ 未找到浮点数\n\n请确认游戏已加载")
+        return
+    end
+
+    -- 如果指定了地址范围，先过滤
+    if addrStart and addrEnd then
+        gg.toast("地址范围过滤中...")
+        local allResults = gg.getResults(count, 0)
+        local filtered = {}
+        for i = 1, #allResults do
+            if allResults[i].address >= addrStart and allResults[i].address <= addrEnd then
+                filtered[#filtered + 1] = allResults[i]
+            end
+        end
+        if #filtered == 0 then
+            searchResult = "❌ 范围内无1.0F"
+            gg.alert("❌ 地址范围内未找到1.0F\n\n范围: 0x" .. string.format("%X", addrStart) .. " ~ 0x" .. string.format("%X", addrEnd) .. "\n总数: " .. count .. " (范围外)")
+            return
+        end
+        count = #filtered
+        gg.alert("📍 地址范围过滤\n\n范围: 0x" .. string.format("%X", addrStart) .. " ~ 0x" .. string.format("%X", addrEnd) .. "\n范围内1.0F: " .. count .. " 个\n(总: " .. gg.getResultsCount() .. " 个)")
+        -- 用过滤后的结果继续
+        candidates = {}
+        local readList = {}
+        for i = 1, #filtered do
+            readList[#readList + 1] = {address = filtered[i].address + 4, flags = gg.TYPE_FLOAT}
+            readList[#readList + 1] = {address = filtered[i].address + 8, flags = gg.TYPE_FLOAT}
+        end
+        local vals = gg.getValues(readList)
+        for i = 1, #filtered do
+            local val2 = vals[(i - 1) * 2 + 1].value
+            local val3 = vals[(i - 1) * 2 + 2].value
+            local score = calcScore(val2, val3)
+            candidates[#candidates + 1] = {
+                address = filtered[i].address,
+                score = score,
+                val2 = val2,
+                val3 = val3
+            }
+        end
+        gg.clearResults()
+
+        -- 跳过后面的while循环
+        table.sort(candidates, function(a, b) return a.score > b.score end)
+        local keepInput = gg.prompt({"保留得分前N个候选"}, {"1000"}, {"number"})
+        local KEEP = keepInput and tonumber(keepInput[1]) or 1000
+        if KEEP < 10 then KEEP = 10 end
+        if #candidates > KEEP then
+            local trimmed = {}
+            for i = 1, KEEP do trimmed[i] = candidates[i] end
+            candidates = trimmed
+        end
+        if #candidates == 0 then
+            searchResult = "❌ 无候选地址"
+            gg.alert("❌ 未找到合适的候选地址")
+            return
+        end
+        searchResult = "🔍 " .. #candidates .. "个候选"
+        local info = "评分完成！\n\n" ..
+            "范围内1.0f: " .. count .. "个\n" ..
+            "候选: " .. #candidates .. "个\n" ..
+            "最高分: " .. (candidates[1] and candidates[1].score or 0)
+        if #candidates > 0 then
+            info = info .. "\n\nTOP3:\n"
+            for i = 1, math.min(3, #candidates) do
+                info = info .. string.format("#%d 得分:%d +4:%.6f +8:%.6f\n",
+                    i, candidates[i].score, candidates[i].val2, candidates[i].val3)
+            end
+        end
+        info = info .. "\n即将使用二分法确认"
+        gg.alert(info)
+        binarySearch()
         return
     end
 
