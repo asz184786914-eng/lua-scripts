@@ -761,9 +761,9 @@ function searchTimeScale()
         offset = offset + batchCount
         local pct = math.floor(math.min(offset, count) / count * 100)
         if addrStart then
-            gg.toast("📍 范围内: " .. rangeHits .. "个 | " .. pct .. "%")
+            gg.toast("📍 范围内: " .. rangeHits .. "/" .. math.min(offset, count))
         else
-            gg.toast("📊 评分: " .. math.min(offset, count) .. "/" .. count .. " (" .. pct .. "%)")
+            gg.toast("📊 评分进度: " .. math.min(offset, count) .. "/" .. count)
         end
     end
 
