@@ -1,6 +1,6 @@
 -- ============================================================
 -- ╔══════════════════════════════════════════════╗
--- ║   Unity Time.timeScale 加速器 v5.2.4          ║
+-- ║   Unity Time.timeScale 加速器 v5.2.7          ║
 -- ║   设备绑定激活 + 防篡改 + 云端更新           ║
 -- ║   署名: xy435116694754                      ║
 -- ╚══════════════════════════════════════════════╝
@@ -462,7 +462,7 @@ function showActivation()
             local c = gg.choice(
                 {"🔑  重新输入激活码", "📋  复制设备码", "❌  退出脚本"},
                 nil,
-                "Unity加速器 v5.2.4 | xy435116694754\n━━━━━━━━━━━━━━━━━━━━━\n\n⚠️ 未输入激活码\n\n" ..
+                "Unity加速器 v5.2.7 | xy435116694754\n━━━━━━━━━━━━━━━━━━━━━\n\n⚠️ 未输入激活码\n\n" ..
                 "📋 你的设备码:\n" ..
                 "━━━━━━━━━━━━━━\n" ..
                 deviceCode .. "\n" ..
@@ -484,7 +484,7 @@ function showActivation()
                 _saveActivation(key)
                 gg.alert(
                     "━━━━━━━━━━━━━━━━━━━━━\n" ..
-                    "  Unity加速器 v5.2.4 | xy435116694754\n" ..
+                    "  Unity加速器 v5.2.7 | xy435116694754\n" ..
                     "━━━━━━━━━━━━━━━━━━━━━\n" ..
                     "  ✅ 激活成功！\n" ..
                     "━━━━━━━━━━━━━━━━━━━━━\n\n" ..
@@ -498,7 +498,7 @@ function showActivation()
                 local c = gg.choice(
                     {"🔑  重新输入", "📋  复制设备码", "❌  退出"},
                     nil,
-                    "Unity加速器 v5.2.4 | xy435116694754\n━━━━━━━━━━━━━━━━━━━━━\n\n❌ 激活码无效\n\n" ..
+                    "Unity加速器 v5.2.7 | xy435116694754\n━━━━━━━━━━━━━━━━━━━━━\n\n❌ 激活码无效\n\n" ..
                     "📋 你的设备码:\n" ..
                     "━━━━━━━━━━━━━━\n" ..
                     deviceCode .. "\n" ..
@@ -526,7 +526,7 @@ local isUnityGame = nil       -- nil=未检测, true=Unity, false=非Unity
 local unityDetectMsg = ""     -- 检测结果消息
 local searchResult = ""       -- 搜索结果消息
 local SAVE_TAG = "⚡TimeScale"
-local APP_VER = "v5.2.4"
+local APP_VER = "v5.2.7"
 
 local CLASSIC_COMBOS = {
     {0.1, 0.03}, {0.1, 0.04}, {0.333, 0.1}, {0.333, 0.06},
@@ -659,7 +659,7 @@ function searchTimeScale()
     end
 
     candidates = {}
-    local batchSize = 8000
+    local batchSize = 50000
     local processed = 0
 
     while processed < count do
