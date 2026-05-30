@@ -593,114 +593,59 @@ function searchTimeScale()
         return
     end
 
-    -- 如果指定了地址范围，先过滤
-    if addrStart and addrEnd then
-        gg.toast("地址范围过滤中...")
-        local allResults = gg.getResults(count, 0)
-        local filtered = {}
-        for i = 1, #allResults do
-            if allResults[i].address >= addrStart and allResults[i].address <= addrEnd then
-                filtered[#filtered + 1] = allResults[i]
-            end
-        end
-        if #filtered == 0 then
-            searchResult = "❌ 范围内无1.0F"
-            gg.alert("❌ 地址范围内未找到1.0F\n\n范围: 0x" .. string.format("%X", addrStart) .. " ~ 0x" .. string.format("%X", addrEnd) .. "\n总数: " .. count .. " (范围外)")
-            return
-        end
-        count = #filtered
-        gg.alert("📍 地址范围过滤\n\n范围: 0x" .. string.format("%X", addrStart) .. " ~ 0x" .. string.format("%X", addrEnd) .. "\n范围内1.0F: " .. count .. " 个\n(总: " .. gg.getResultsCount() .. " 个)")
-        -- 用过滤后的结果继续
-        candidates = {}
-        local readList = {}
-        for i = 1, #filtered do
-            readList[#readList + 1] = {address = filtered[i].address + 4, flags = gg.TYPE_FLOAT}
-            readList[#readList + 1] = {address = filtered[i].address + 8, flags = gg.TYPE_FLOAT}
-        end
-        local vals = gg.getValues(readList)
-        for i = 1, #filtered do
-            local val2 = vals[(i - 1) * 2 + 1].value
-            local val3 = vals[(i - 1) * 2 + 2].value
-            local score = calcScore(val2, val3)
-            candidates[#candidates + 1] = {
-                address = filtered[i].address,
-                score = score,
-                val2 = val2,
-                val3 = val3
-            }
-        end
-        gg.clearResults()
-
-        -- 跳过后面的while循环
-        table.sort(candidates, function(a, b) return a.score > b.score end)
-        local keepInput = gg.prompt({"保留得分前N个候选"}, {"1000"}, {"number"})
-        local KEEP = keepInput and tonumber(keepInput[1]) or 1000
-        if KEEP < 10 then KEEP = 10 end
-        if #candidates > KEEP then
-            local trimmed = {}
-            for i = 1, KEEP do trimmed[i] = candidates[i] end
-            candidates = trimmed
-        end
-        if #candidates == 0 then
-            searchResult = "❌ 无候选地址"
-            gg.alert("❌ 未找到合适的候选地址")
-            return
-        end
-        searchResult = "🔍 " .. #candidates .. "个候选"
-        local info = "评分完成！\n\n" ..
-            "范围内1.0f: " .. count .. "个\n" ..
-            "候选: " .. #candidates .. "个\n" ..
-            "最高分: " .. (candidates[1] and candidates[1].score or 0)
-        if #candidates > 0 then
-            info = info .. "\n\nTOP3:\n"
-            for i = 1, math.min(3, #candidates) do
-                info = info .. string.format("#%d 得分:%d +4:%.6f +8:%.6f\n",
-                    i, candidates[i].score, candidates[i].val2, candidates[i].val3)
-            end
-        end
-        info = info .. "\n即将使用二分法确认"
-        gg.alert(info)
-        binarySearch()
-        return
-    end
-
-    gg.toast("找到 " .. count .. " 个1.0f，开始全量评分...")
-
     -- 可选保留数量
     local keepInput = gg.prompt({"保留得分前N个候选"}, {"1000"}, {"number"})
     local KEEP = keepInput and tonumber(keepInput[1]) or 1000
     if KEEP < 10 then KEEP = 10 end
 
-    -- 分批处理所有结果
+    gg.toast("找到 " .. count .. " 个1.0f，开始评分...")
+
+    -- 分批处理所有结果，范围内过滤
     local BATCH = 50000
     local offset = 0
+    local rangeHits = 0
 
     while offset < count do
         local batchCount = math.min(BATCH, count - offset)
         local results = gg.getResults(batchCount, offset)
 
-        -- 批量读取+4和+8
-        local readList = {}
+        -- 先过滤出范围内的结果
+        local filtered = {}
         for i = 1, #results do
-            readList[#readList + 1] = {address = results[i].address + 4, flags = gg.TYPE_FLOAT}
-            readList[#readList + 1] = {address = results[i].address + 8, flags = gg.TYPE_FLOAT}
+            if not addrStart or (results[i].address >= addrStart and results[i].address <= addrEnd) then
+                filtered[#filtered + 1] = results[i]
+            end
         end
-        local vals = gg.getValues(readList)
+        rangeHits = rangeHits + #filtered
 
-        for i = 1, #results do
-            local val2 = vals[(i - 1) * 2 + 1].value
-            local val3 = vals[(i - 1) * 2 + 2].value
-            local score = calcScore(val2, val3)
-            candidates[#candidates + 1] = {
-                address = results[i].address,
-                score = score,
-                val2 = val2,
-                val3 = val3
-            }
+        -- 只对范围内的结果读取+4和+8
+        if #filtered > 0 then
+            local readList = {}
+            for i = 1, #filtered do
+                readList[#readList + 1] = {address = filtered[i].address + 4, flags = gg.TYPE_FLOAT}
+                readList[#readList + 1] = {address = filtered[i].address + 8, flags = gg.TYPE_FLOAT}
+            end
+            local vals = gg.getValues(readList)
+
+            for i = 1, #filtered do
+                local val2 = vals[(i - 1) * 2 + 1].value
+                local val3 = vals[(i - 1) * 2 + 2].value
+                local score = calcScore(val2, val3)
+                candidates[#candidates + 1] = {
+                    address = filtered[i].address,
+                    score = score,
+                    val2 = val2,
+                    val3 = val3
+                }
+            end
         end
 
         offset = offset + batchCount
-        gg.toast("评分进度: " .. math.min(offset, count) .. "/" .. count)
+        if addrStart then
+            gg.toast("范围内: " .. rangeHits .. "/" .. math.min(offset, count))
+        else
+            gg.toast("评分进度: " .. math.min(offset, count) .. "/" .. count)
+        end
     end
 
     gg.clearResults()
