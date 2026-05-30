@@ -689,83 +689,107 @@ function searchTimeScale()
     local keepMap = {[1]=10, [2]=20, [3]=50, [4]=100, [5]=999999}
     local maxCandidates = keepMap[maxKeep] or 50
 
-    gg.toast("🔍 搜索中...")
-
-    gg.clearResults()
-    gg.searchNumber(_gs("search_val"), gg.TYPE_FLOAT)
-    local count = gg.getResultsCount()
-
-    if count == 0 then
-        searchResult = "❌ 未找到1.0F"
-        gg.alert("❌ 未找到 " .. _gs("search_val") .. " 浮点数\n\n请确认游戏已加载")
-        return
-    end
-
     candidates = {}
-    local batchSize = 5000
-    local getValBatch = 2000  -- 每批getValues最多2000个地址
-    local processed = 0
 
-    while processed < count do
-        local remaining = count - processed
-        local size = math.min(batchSize, remaining)
-        local results = gg.getResults(size, processed)
+    -- ======== Phase 1: 经典组合分组搜索 ========
+    gg.toast("Phase 1: 经典组合分组搜索...")
+    local phase1Found = false
 
-        -- 分批getValues，每批最多2000个地址
-        local resultIdx = 1
-        while resultIdx <= #results do
-            local batchEnd = math.min(resultIdx + math.floor(getValBatch / 4) - 1, #results)
-            local allAddrs = {}
-            for i = resultIdx, batchEnd do
-                for j = 1, 4 do
-                    allAddrs[#allAddrs + 1] = {
-                        address = results[i].address + j * 4,
-                        flags = gg.TYPE_FLOAT,
-                        value = 0
-                    }
+    for idx, combo in ipairs(CLASSIC_COMBOS) do
+        gg.clearResults()
+        local searchStr = _gs("search_val") .. ";" .. combo[1] .. ";" .. combo[2]
+        local ok, err = pcall(function()
+            gg.searchNumber(searchStr, gg.TYPE_FLOAT)
+        end)
+        if ok then
+            local count = gg.getResultsCount()
+            if count > 0 then
+                gg.toast("组合 " .. combo[1] .. "+" .. combo[2] .. " 命中 " .. count .. " 个")
+                local maxGet = math.min(count, 500)
+                local results = gg.getResults(maxGet)
+
+                -- 读取+4和+8的实际值
+                local readList = {}
+                for i = 1, #results do
+                    readList[#readList + 1] = {address = results[i].address + 4, flags = gg.TYPE_FLOAT, value = 0}
+                    readList[#readList + 1] = {address = results[i].address + 8, flags = gg.TYPE_FLOAT, value = 0}
                 end
-            end
+                local vals = gg.getValues(readList)
 
-            local allVals = {}
-            local ok, allRes = pcall(gg.getValues, allAddrs)
-            if ok and allRes then
-                allVals = allRes
-            end
-
-            for i = resultIdx, batchEnd do
-                local nextVals = {}
-                local offset = (i - resultIdx) * 4
-                for j = 1, 4 do
-                    local idx = offset + j
-                    if idx <= #allVals then
-                        nextVals[j] = allVals[idx].value
-                    end
-                end
-
-                local score = scoreResult(results[i].address, results[i].value, nextVals)
-
-                if score > 0 then
+                for i = 1, #results do
                     candidates[#candidates + 1] = {
                         address = results[i].address,
                         value = results[i].value,
-                        score = score,
-                        nextVals = nextVals
+                        score = 200 + idx,  -- Phase1高分
+                        nextVals = {vals[(i - 1) * 2 + 1].value, vals[(i - 1) * 2 + 2].value}
                     }
                 end
+                phase1Found = true
             end
-
-            resultIdx = batchEnd + 1
         end
-
-        processed = processed + size
-        gg.toast("🔍 已扫描 " .. processed .. "/" .. count)
     end
 
-    gg.clearResults()
+    -- ======== Phase 2: 回退搜索单个1.0 + 全量评分 ========
+    if not phase1Found then
+        gg.toast("Phase 2: 分组搜索未命中，回退搜索单个1.0f...")
+        gg.clearResults()
+        gg.searchNumber(_gs("search_val"), gg.TYPE_FLOAT)
+        local count = gg.getResultsCount()
+
+        if count == 0 then
+            searchResult = "❌ 未找到1.0F"
+            gg.alert("❌ 未找到 " .. _gs("search_val") .. " 浮点数\n\n请确认游戏已加载")
+            return
+        end
+
+        gg.toast("找到 " .. count .. " 个1.0f，开始全量评分...")
+
+        local BATCH = 5000
+        local offset = 0
+
+        while offset < count do
+            local batchCount = math.min(BATCH, count - offset)
+            local results = gg.getResults(batchCount, offset)
+
+            -- 批量读取+4和+8，每批最多2000个地址
+            local resultIdx = 1
+            while resultIdx <= #results do
+                local batchEnd = math.min(resultIdx + 499, #results)  -- 每批500个结果=1000个地址
+                local readList = {}
+                for i = resultIdx, batchEnd do
+                    readList[#readList + 1] = {address = results[i].address + 4, flags = gg.TYPE_FLOAT, value = 0}
+                    readList[#readList + 1] = {address = results[i].address + 8, flags = gg.TYPE_FLOAT, value = 0}
+                end
+                local vals = gg.getValues(readList)
+
+                for i = resultIdx, batchEnd do
+                    local val2 = vals[(i - resultIdx) * 2 + 1].value
+                    local val3 = vals[(i - resultIdx) * 2 + 2].value
+                    local score = scoreResult(results[i].address, results[i].value, {val2, val3})
+
+                    if score > 0 then
+                        candidates[#candidates + 1] = {
+                            address = results[i].address,
+                            value = results[i].value,
+                            score = score,
+                            nextVals = {val2, val3}
+                        }
+                    end
+                end
+
+                resultIdx = batchEnd + 1
+            end
+
+            offset = offset + batchCount
+            gg.toast("🔍 已扫描 " .. math.min(offset, count) .. "/" .. count)
+        end
+
+        gg.clearResults()
+    end
 
     if #candidates == 0 then
-        searchResult = "❌ " .. count .. "个1.0F, 无匹配"
-        gg.alert("❌ 未找到合适的候选地址\n\n搜到 " .. count .. " 个1.0F，但无经典组合匹配")
+        searchResult = "❌ 未找到候选地址"
+        gg.alert("❌ 未找到合适的候选地址\n\nPhase 1 和 Phase 2 均无匹配")
         return
     end
 
@@ -776,8 +800,10 @@ function searchTimeScale()
     end
 
     searchResult = "🔍 " .. #candidates .. "个候选"
+    local mode = phase1Found and "Phase1 分组命中" or "Phase2 全量评分"
     gg.alert(
         "✅ 找到 " .. #candidates .. " 个候选地址\n\n" ..
+        "模式: " .. mode .. "\n" ..
         "最高分: " .. candidates[1].score .. "\n" ..
         "地址: " .. string.format("0x%X", candidates[1].address) .. "\n\n" ..
         "开始二分法确认..."
