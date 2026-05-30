@@ -530,22 +530,10 @@ local SAVE_TAG = "⚡TimeScale"
 local APP_VER = "v5.2.7"
 
 local CLASSIC_COMBOS = {
-    -- 已验证游戏（最高优先级 +100）
-    {0.1, 0.03, bonus = 100, name = "地平线行者"},     -- 已验证
-    {0.333, 0.1, bonus = 100, name = "女神异闻录"},    -- 已验证
-    {0.333, 0.06, bonus = 100, name = "进击的恶魔团"}, -- 已验证
-    -- 常见组合（+50）
-    {0.1, 0.04, bonus = 50},
-    {0.333, 0.15, bonus = 50},
-    {0.333, 0.03, bonus = 50},
-    {0.02, 0.1, bonus = 50},
-    {0.02, 0.333, bonus = 50},
-    {0.033, 0.333, bonus = 50},
-    {0.03, 0.1, bonus = 50},
-    {0.05, 0.1, bonus = 50},
-    {0.05, 0.333, bonus = 50},
-    {0.0167, 0.1, bonus = 50},
-    {0.0167, 0.333, bonus = 50},
+    {0.1, 0.03}, {0.1, 0.04}, {0.333, 0.1}, {0.333, 0.06},
+    {0.333, 0.15}, {0.333, 0.03}, {0.02, 0.1}, {0.02, 0.333},
+    {0.033, 0.333}, {0.03, 0.1}, {0.05, 0.1}, {0.05, 0.333},
+    {0.0167, 0.1}, {0.0167, 0.333},
 }
 
 -- ============ Unity引擎检测 ============
@@ -714,7 +702,7 @@ function calcScore(val2, val3)
     if isGoodFloat(val2) and isGoodFloat(val3) then
         for _, c in ipairs(CLASSIC_COMBOS) do
             if near(val2, c[1]) and near(val3, c[2]) then
-                score = score + (c.bonus or 50)
+                score = score + 50
                 break
             end
         end
