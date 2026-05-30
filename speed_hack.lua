@@ -718,15 +718,11 @@ function searchTimeScale()
         return
     end
 
-    -- 选择保留特征数量
-    local maxKeep = gg.choice(
-        {"10个", "20个", "50个", "100个", "全部"},
-        2,
-        "选择二分法最大保留特征数\n数量越多越准确，但耗时更长"
-    )
-    if not maxKeep then return end
-    local keepMap = {[1]=10, [2]=20, [3]=50, [4]=100, [5]=999999}
-    local maxCandidates = keepMap[maxKeep] or 50
+    -- 输入保留特征数量
+    local keepInput = gg.prompt({"保留得分前N个候选"}, {1000}, {"number"})
+    if not keepInput then return end
+    local maxCandidates = tonumber(keepInput[1]) or 1000
+    if maxCandidates < 10 then maxCandidates = 10 end
 
     candidates = {}
 
@@ -743,7 +739,7 @@ function searchTimeScale()
 
     gg.toast("找到 " .. count .. " 个1.0f，开始评分...")
 
-    local BATCH = 5000
+    local BATCH = 50000
     local offset = 0
 
     while offset < count do
