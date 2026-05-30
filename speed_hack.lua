@@ -958,13 +958,16 @@ function showMenu()
 
     -- Unity检测状态
     local unityStatus = "❓ 未检测"
-    local levelLabels = {[0]="⚫非Unity", [1]="🔴疑似非Unity", [2]="🟠低可信度", [3]="🟡中可信度", [4]="🟢高可信度"}
+    local levelLabels = {[0]="", [1]="🔴疑似非Unity", [2]="🟠低可信度", [3]="🟡中可信度", [4]="🟢高可信度"}
     if isUnityGame == true then
-        unityStatus = "🟢 Unity(" .. (levelLabels[unityLevel] or "") .. ")"
+        local lv = levelLabels[unityLevel] or ""
+        unityStatus = "🟢 Unity" .. (lv ~= "" and "(" .. lv .. ")" or "")
     elseif isUnityGame == nil and unityDetectMsg ~= "" then
-        unityStatus = "🟠 待确认(" .. (levelLabels[unityLevel] or "") .. ")"
+        local lv = levelLabels[unityLevel] or ""
+        unityStatus = "🟠 待确认" .. (lv ~= "" and "(" .. lv .. ")" or "")
     elseif isUnityGame == false then
-        unityStatus = "❌ 非Unity(" .. (levelLabels[unityLevel] or "") .. ")"
+        local lv = levelLabels[unityLevel] or ""
+        unityStatus = "❌ 非Unity" .. (lv ~= "" and "(" .. lv .. ")" or "")
     end
 
     local c = gg.choice(
