@@ -652,15 +652,15 @@ end
 -- ============ 搜索功能 ============
 
 function isGoodFloat(v)
-    if v == 0 then return false end
+    if v == nil then return false end
     if v ~= v then return false end  -- NaN
-    if math.abs(v) == math.huge then return false end
+    if v == math.huge or v == -math.huge then return false end
+    if v < -10000 or v > 10000 then return false end
     return true
 end
 
-function near(a, b)
-    if a == 0 and b == 0 then return true end
-    return math.abs(a - b) < 0.01
+function near(v, target)
+    return math.abs(v - target) < 0.001
 end
 
 function calcScore(val2, val3)
@@ -721,8 +721,8 @@ function searchTimeScale()
     -- 输入保留特征数量
     local keepInput = gg.prompt({"保留得分前N个候选"}, {1000}, {"number"})
     if not keepInput then return end
-    local maxCandidates = tonumber(keepInput[1]) or 1000
-    if maxCandidates < 10 then maxCandidates = 10 end
+    local KEEP = keepInput and tonumber(keepInput[1]) or 1000
+    if KEEP < 10 then KEEP = 10 end
 
     candidates = {}
 
@@ -733,13 +733,13 @@ function searchTimeScale()
 
     if count == 0 then
         searchResult = "❌ 未找到1.0F"
-        gg.alert("❌ 未找到 " .. _gs("search_val") .. " 浮点数\n\n请确认游戏已加载")
+        gg.alert("❌ 未找到浮点数\n\n请确认游戏已加载")
         return
     end
 
-    gg.toast("找到 " .. count .. " 个1.0f，开始评分...")
+    gg.toast("找到 " .. count .. " 个1.0f，开始全量评分...")
 
-    -- 分批处理所有结果（与v3.2一致）
+    -- 分批处理所有结果（v3.2逻辑）
     local BATCH = 10000
     local offset = 0
 
@@ -747,7 +747,7 @@ function searchTimeScale()
         local batchCount = math.min(BATCH, count - offset)
         local results = gg.getResults(batchCount, offset)
 
-        -- 批量读取+4和+8（一次性，不分小批）
+        -- 批量读取+4和+8
         local readList = {}
         for i = 1, #results do
             readList[#readList + 1] = {address = results[i].address + 4, flags = gg.TYPE_FLOAT}
@@ -759,17 +759,16 @@ function searchTimeScale()
             local val2 = vals[(i - 1) * 2 + 1].value
             local val3 = vals[(i - 1) * 2 + 2].value
             local score = calcScore(val2, val3)
-            -- 所有结果都加入，不筛选score>0
             candidates[#candidates + 1] = {
                 address = results[i].address,
-                value = results[i].value,
                 score = score,
-                nextVals = {val2, val3}
+                val2 = val2,
+                val3 = val3
             }
         end
 
         offset = offset + batchCount
-        gg.toast("🔍 评分进度: " .. math.min(offset, count) .. "/" .. count)
+        gg.toast("评分进度: " .. math.min(offset, count) .. "/" .. count)
     end
 
     gg.clearResults()
@@ -777,10 +776,10 @@ function searchTimeScale()
     -- 按得分排序
     table.sort(candidates, function(a, b) return a.score > b.score end)
 
-    -- 只保留前maxCandidates个
-    if #candidates > maxCandidates then
+    -- 只保留前KEEP个
+    if #candidates > KEEP then
         local trimmed = {}
-        for i = 1, maxCandidates do trimmed[i] = candidates[i] end
+        for i = 1, KEEP do trimmed[i] = candidates[i] end
         candidates = trimmed
     end
 
@@ -790,19 +789,20 @@ function searchTimeScale()
         return
     end
 
+    -- 显示结果
     searchResult = "🔍 " .. #candidates .. "个候选"
-    local info = "✅ 评分完成！\n\n" ..
+    local info = "评分完成！\n\n" ..
         "搜到 " .. count .. " 个1.0f\n" ..
-        "候选 " .. #candidates .. " 个（保留前" .. maxCandidates .. "）\n" ..
-        "最高分: " .. candidates[1].score
+        "有 " .. #candidates .. " 个候选（保留前" .. KEEP .. "）\n" ..
+        "最高分: " .. (candidates[1] and candidates[1].score or 0)
     if #candidates > 0 then
         info = info .. "\n\nTOP3:\n"
         for i = 1, math.min(3, #candidates) do
             info = info .. string.format("#%d 得分:%d +4:%.6f +8:%.6f\n",
-                i, candidates[i].score, candidates[i].nextVals[1], candidates[i].nextVals[2])
+                i, candidates[i].score, candidates[i].val2, candidates[i].val3)
         end
     end
-    info = info .. "\n开始二分法确认..."
+    info = info .. "\n即将使用二分法确认"
     gg.alert(info)
 
     binarySearch()
