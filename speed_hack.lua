@@ -530,10 +530,22 @@ local SAVE_TAG = "⚡TimeScale"
 local APP_VER = "v5.2.7"
 
 local CLASSIC_COMBOS = {
-    {0.1, 0.03}, {0.1, 0.04}, {0.333, 0.1}, {0.333, 0.06},
-    {0.333, 0.15}, {0.333, 0.03}, {0.02, 0.1}, {0.02, 0.333},
-    {0.033, 0.333}, {0.03, 0.1}, {0.05, 0.1}, {0.05, 0.333},
-    {0.0167, 0.1}, {0.0167, 0.333},
+    -- 已验证游戏（最高优先级 +100）
+    {0.1, 0.03, bonus = 100, name = "地平线行者"},     -- 已验证
+    {0.333, 0.1, bonus = 100, name = "女神异闻录"},    -- 已验证
+    {0.333, 0.06, bonus = 100, name = "进击的恶魔团"}, -- 已验证
+    -- 常见组合（+50）
+    {0.1, 0.04, bonus = 50},
+    {0.333, 0.15, bonus = 50},
+    {0.333, 0.03, bonus = 50},
+    {0.02, 0.1, bonus = 50},
+    {0.02, 0.333, bonus = 50},
+    {0.033, 0.333, bonus = 50},
+    {0.03, 0.1, bonus = 50},
+    {0.05, 0.1, bonus = 50},
+    {0.05, 0.333, bonus = 50},
+    {0.0167, 0.1, bonus = 50},
+    {0.0167, 0.333, bonus = 50},
 }
 
 -- ============ Unity引擎检测 ============
@@ -653,14 +665,34 @@ end
 
 function scoreResult(addr, val, nextVals)
     local score = 0
-    if val > 0.5 and val < 2.0 then score = score + 10 end
 
-    for _, combo in ipairs(CLASSIC_COMBOS) do
-        if nextVals and #nextVals >= 2 then
+    -- 基础分：值在合理范围
+    if val > 0.5 and val < 2.0 then score = score + 10 end
+    if val == 1.0 then score = score + 5 end
+
+    -- +4 偏移值评分
+    if nextVals and #nextVals >= 1 then
+        local v2 = nextVals[1]
+        if v2 > 0 and v2 < 0.5 then score = score + 15 end
+        if v2 > 0.5 and v2 < 1.0 then score = score + 5 end
+        if v2 >= 5.0 then score = score - 30 end
+        if v2 >= 10.0 then score = score - 40 end
+    end
+
+    -- +8 偏移值评分
+    if nextVals and #nextVals >= 2 then
+        local v3 = nextVals[2]
+        if v3 > 0 and v3 < 0.5 then score = score + 10 end
+        if v3 >= 5.0 then score = score - 20 end
+    end
+
+    -- 经典组合匹配（最高加分）
+    if nextVals and #nextVals >= 2 then
+        for _, combo in ipairs(CLASSIC_COMBOS) do
             local diff1 = math.abs(nextVals[1] - combo[1])
             local diff2 = math.abs(nextVals[2] - combo[2])
             if diff1 < 0.01 and diff2 < 0.01 then
-                score = score + 50
+                score = score + (combo.bonus or 50)
                 break
             elseif diff1 < 0.01 then
                 score = score + 5
@@ -668,7 +700,6 @@ function scoreResult(addr, val, nextVals)
         end
     end
 
-    if val == 1.0 then score = score + 5 end
     return score
 end
 
