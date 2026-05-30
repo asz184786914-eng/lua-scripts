@@ -700,7 +700,7 @@ function searchTimeScale()
 
     candidates = {}
 
-    gg.toast("🔍 搜索中...")
+    gg.toast("🔍 搜索1.0f中...")
     gg.clearResults()
     gg.searchNumber("1.0", gg.TYPE_FLOAT)
     local count = gg.getResultsCount()
@@ -715,7 +715,8 @@ function searchTimeScale()
     local KEEP = keepInput and tonumber(keepInput[1]) or 1000
     if KEEP < 10 then KEEP = 10 end
 
-    gg.toast("找到 " .. count .. " 个1.0f，开始评分...")
+    local rangeHint = addrStart and (" (范围: 0x" .. string.format("%X", addrStart) .. "~0x" .. string.format("%X", addrEnd) .. ")") or ""
+    gg.alert("✅ 搜到 " .. count .. " 个1.0f" .. rangeHint .. "\n\n即将开始评分，请稍候...")
 
     -- 分批处理所有结果，范围内过滤
     local BATCH = 50000
@@ -758,10 +759,11 @@ function searchTimeScale()
         end
 
         offset = offset + batchCount
+        local pct = math.floor(math.min(offset, count) / count * 100)
         if addrStart then
-            gg.toast("范围内: " .. rangeHits .. "/" .. math.min(offset, count))
+            gg.toast("📍 范围内: " .. rangeHits .. "个 | " .. pct .. "%")
         else
-            gg.toast("评分进度: " .. math.min(offset, count) .. "/" .. count)
+            gg.toast("📊 评分: " .. math.min(offset, count) .. "/" .. count .. " (" .. pct .. "%)")
         end
     end
 
