@@ -679,6 +679,16 @@ function searchTimeScale()
         return
     end
 
+    -- 选择保留特征数量
+    local maxKeep = gg.choice(
+        {"10个", "20个", "50个", "100个", "全部"},
+        2,
+        "选择二分法最大保留特征数\n数量越多越准确，但耗时更长"
+    )
+    if not maxKeep then return end
+    local keepMap = {[1]=10, [2]=20, [3]=50, [4]=100, [5]=999999}
+    local maxCandidates = keepMap[maxKeep] or 50
+
     gg.toast("🔍 搜索中...")
 
     gg.clearResults()
@@ -692,7 +702,8 @@ function searchTimeScale()
     end
 
     candidates = {}
-    local batchSize = 50000
+    local batchSize = 5000
+    local getValBatch = 2000  -- 每批getValues最多2000个地址
     local processed = 0
 
     while processed < count do
@@ -700,47 +711,50 @@ function searchTimeScale()
         local size = math.min(batchSize, remaining)
         local results = gg.getResults(size, processed)
 
-        -- 批量构建所有需要读取的地址（一次性IO）
-        local allAddrs = {}
-        for i, r in ipairs(results) do
-            for j = 1, 4 do
-                allAddrs[#allAddrs + 1] = {
-                    address = r.address + j * 4,
-                    flags = gg.TYPE_FLOAT,
-                    value = 0
-                }
-            end
-        end
-
-        -- 一次性读取所有后续地址
-        local allVals = {}
-        local ok, allRes = pcall(gg.getValues, allAddrs)
-        if ok and allRes then
-            allVals = allRes
-        end
-
-        -- 解析评分
-        for i, r in ipairs(results) do
-            local nextVals = {}
-            if #allVals > 0 then
+        -- 分批getValues，每批最多2000个地址
+        local resultIdx = 1
+        while resultIdx <= #results do
+            local batchEnd = math.min(resultIdx + math.floor(getValBatch / 4) - 1, #results)
+            local allAddrs = {}
+            for i = resultIdx, batchEnd do
                 for j = 1, 4 do
-                    local idx = (i - 1) * 4 + j
+                    allAddrs[#allAddrs + 1] = {
+                        address = results[i].address + j * 4,
+                        flags = gg.TYPE_FLOAT,
+                        value = 0
+                    }
+                end
+            end
+
+            local allVals = {}
+            local ok, allRes = pcall(gg.getValues, allAddrs)
+            if ok and allRes then
+                allVals = allRes
+            end
+
+            for i = resultIdx, batchEnd do
+                local nextVals = {}
+                local offset = (i - resultIdx) * 4
+                for j = 1, 4 do
+                    local idx = offset + j
                     if idx <= #allVals then
                         nextVals[j] = allVals[idx].value
                     end
                 end
+
+                local score = scoreResult(results[i].address, results[i].value, nextVals)
+
+                if score > 0 then
+                    candidates[#candidates + 1] = {
+                        address = results[i].address,
+                        value = results[i].value,
+                        score = score,
+                        nextVals = nextVals
+                    }
+                end
             end
 
-            local score = scoreResult(r.address, r.value, nextVals)
-
-            if score > 0 then
-                candidates[#candidates + 1] = {
-                    address = r.address,
-                    value = r.value,
-                    score = score,
-                    nextVals = nextVals
-                }
-            end
+            resultIdx = batchEnd + 1
         end
 
         processed = processed + size
@@ -757,8 +771,8 @@ function searchTimeScale()
 
     table.sort(candidates, function(a, b) return a.score > b.score end)
 
-    if #candidates > 50 then
-        candidates = {table.unpack(candidates, 1, 50)}
+    if #candidates > maxCandidates then
+        candidates = {table.unpack(candidates, 1, maxCandidates)}
     end
 
     searchResult = "🔍 " .. #candidates .. "个候选"
