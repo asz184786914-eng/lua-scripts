@@ -530,186 +530,23 @@ local SAVE_TAG = "⚡TimeScale"
 local APP_VER = "v5.2.7"
 
 local CLASSIC_COMBOS = {
-    {0.1, 0.03}, {0.1, 0.04}, {0.333, 0.1}, {0.333, 0.06},
-    {0.333, 0.15}, {0.333, 0.03}, {0.02, 0.1}, {0.02, 0.333},
-    {0.033, 0.333}, {0.03, 0.1}, {0.05, 0.1}, {0.05, 0.333},
-    {0.0167, 0.1}, {0.0167, 0.333},
+    {0.1, 0.03},
+    {0.1, 0.04},
+    {0.333, 0.1},
+    {0.333, 0.06},
+    {0.333, 0.15},
+    {0.333, 0.03},
+    {0.02, 0.1},
+    {0.02, 0.333},
+    {0.033, 0.333},
+    {0.03, 0.1},
+    {0.05, 0.1},
+    {0.05, 0.333},
+    {0.0167, 0.1},
+    {0.0167, 0.333},
 }
 
--- ============ Unity引擎检测 ============
-
-function detectUnity()
-    local pkg = gg.getSelectedPackage()
-    if not pkg then return false, 0, "未选中进程" end
-
-    local coreFeatures = {
-        {name = "libunity.so", sig = "h 6C 69 62 75 6E 69 74 79 2E 73 6F"},
-        {name = "UnityEngine.Time", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65 2E 54 69 6D 65"},
-    }
-
-    local auxFeatures = {
-        {name = "Time.timeScale", sig = "h 54 69 6D 65 2E 74 69 6D 65 53 63 61 6C 65"},
-        {name = "Time.fixedDeltaTime", sig = "h 54 69 6D 65 2E 66 69 78 65 64 44 65 6C 74 61 54 69 6D 65"},
-        {name = "Time.maximumDeltaTime", sig = "h 54 69 6D 65 2E 6D 61 78 69 6D 75 6D 44 65 6C 74 61 54 69 6D 65"},
-        {name = "UnityEngine", sig = "h 55 6E 69 74 79 45 6E 67 69 6E 65"},
-        {name = "libil2cpp.so", sig = "h 6C 69 62 69 6C 32 63 70 70 2E 73 6F"},
-    }
-
-    -- 检测核心特征
-    local coreFound = {}
-    local coreHitCount = 0
-    for _, feat in ipairs(coreFeatures) do
-        gg.clearResults()
-        gg.searchNumber(feat.sig, gg.TYPE_BYTE)
-        local found = gg.getResultsCount()
-        gg.clearResults()
-        coreFound[feat.name] = (found > 0)
-        if found > 0 then coreHitCount = coreHitCount + 1 end
-    end
-
-    -- 检测辅助特征
-    local auxFound = {}
-    local auxHitCount = 0
-    for _, feat in ipairs(auxFeatures) do
-        gg.clearResults()
-        gg.searchNumber(feat.sig, gg.TYPE_BYTE)
-        local found = gg.getResultsCount()
-        gg.clearResults()
-        auxFound[feat.name] = (found > 0)
-        if found > 0 then auxHitCount = auxHitCount + 1 end
-    end
-
-    local totalHits = coreHitCount + auxHitCount
-    local total = #coreFeatures + #auxFeatures
-
-    -- 可信度判定
-    local level, label, isUnity
-    if totalHits >= 6 then
-        level = 4; label = "🟢 高可信度"; isUnity = true
-    elseif totalHits >= 4 then
-        level = 3; label = "🟡 中可信度"; isUnity = true
-    elseif totalHits >= 2 then
-        level = 2; label = "🟠 低可信度"; isUnity = nil
-    elseif totalHits == 1 then
-        level = 1; label = "🔴 疑似非Unity"; isUnity = false
-    else
-        level = 0; label = "⚫ 非Unity"; isUnity = false
-    end
-
-    -- 构建详情：核心验证列表
-    local detail = label .. " (" .. totalHits .. "/" .. total .. ")\n\n"
-    detail = detail .. "核心验证 (" .. coreHitCount .. "/" .. #coreFeatures .. ")\n"
-    for _, feat in ipairs(coreFeatures) do
-        if coreFound[feat.name] then
-            detail = detail .. "  ✅ " .. feat.name .. "\n"
-        else
-            detail = detail .. "  ❌ " .. feat.name .. "\n"
-        end
-    end
-
-    -- 辅助验证列表
-    detail = detail .. "\n辅助验证 (" .. auxHitCount .. "/" .. #auxFeatures .. ")\n"
-    for _, feat in ipairs(auxFeatures) do
-        if auxFound[feat.name] then
-            detail = detail .. "  ✅ " .. feat.name .. "\n"
-        else
-            detail = detail .. "  ❌ " .. feat.name .. "\n"
-        end
-    end
-
-    return isUnity, level, detail
-end
-
-function runUnityDetect()
-    gg.toast("🔍 正在检测Unity引擎...")
-    local isUnity, level, detail = detectUnity()
-    isUnityGame = isUnity
-    unityLevel = level
-    unityDetectMsg = detail
-
-    local advice = ""
-    if level == 4 then
-        advice = "所有特征命中，请尝试使用"
-    elseif level == 3 then
-        advice = "大部分特征命中，可进行尝试"
-    elseif level == 2 then
-        advice = "🟠 命中特征较少，可能不是Unity\n加速功能可能无效，建议手动确认"
-    elseif level == 1 then
-        advice = "🔴 仅1个特征命中，疑似非Unity\n加速功能大概率无效"
-    else
-        advice = "⚫ 未检测到任何Unity特征\n加速功能无效"
-    end
-
-    gg.alert(
-        "─────────────────────\n" ..
-        "🔍 Unity引擎检测\n" ..
-        "─────────────────────\n\n" ..
-        detail .. "\n" ..
-        advice
-    )
-end
-
--- ============ 搜索功能 ============
-
-function isGoodFloat(v)
-    if v == nil then return false end
-    if v ~= v then return false end  -- NaN
-    if v == math.huge or v == -math.huge then return false end
-    if v < -10000 or v > 10000 then return false end
-    return true
-end
-
-function near(v, target)
-    return math.abs(v - target) < 0.001
-end
-
-function calcScore(val2, val3)
-    local score = 0
-
-    if isGoodFloat(val2) then
-        score = score + 50
-        if near(val2, 0.333333) then score = score + 40 end
-        if near(val2, 0.033333) then score = score + 40 end
-        if near(val2, 0.02) then score = score + 35 end
-        if near(val2, 0.016666) or near(val2, 0.0167) then score = score + 35 end
-        if near(val2, 0.011111) then score = score + 30 end
-        if near(val2, 0.1) then score = score + 30 end
-        if near(val2, 0.05) then score = score + 20 end
-        if near(val2, 0.03) then score = score + 35 end
-        if val2 > 0 and val2 < 0.5 then score = score + 15 end
-        if val2 > 0.5 and val2 < 1.0 then score = score + 5 end
-        if val2 >= 5.0 then score = score - 30 end
-        if val2 >= 10.0 then score = score - 40 end
-    else
-        score = -100
-    end
-
-    if isGoodFloat(val3) then
-        score = score + 20
-        if near(val3, 0.1) then score = score + 30 end
-        if near(val3, 0.333333) then score = score + 25 end
-        if near(val3, 0.05) then score = score + 20 end
-        if near(val3, 0.033333) then score = score + 15 end
-        if near(val3, 0.03) then score = score + 25 end
-        if near(val3, 0.02) then score = score + 20 end
-        if val3 > 0 and val3 < 0.5 then score = score + 10 end
-        if val3 >= 5.0 then score = score - 20 end
-    else
-        score = score - 30
-    end
-
-    -- 经典组合加分
-    if isGoodFloat(val2) and isGoodFloat(val3) then
-        for _, c in ipairs(CLASSIC_COMBOS) do
-            if near(val2, c[1]) and near(val3, c[2]) then
-                score = score + 50
-                break
-            end
-        end
-    end
-
-    return score
-end
+-- ============ 搜索主流程 ============
 
 function searchTimeScale()
     local pkg = gg.getSelectedPackage()
@@ -718,19 +555,12 @@ function searchTimeScale()
         return
     end
 
-    -- 输入保留特征数量
-    local keepInput = gg.prompt({"保留得分前N个候选"}, {1000}, {"number"})
-    if not keepInput then return end
-    local KEEP = keepInput and tonumber(keepInput[1]) or 1000
-    if KEEP < 10 then KEEP = 10 end
-
     candidates = {}
 
     gg.toast("🔍 搜索中...")
     gg.clearResults()
-    gg.searchNumber(_gs("search_val"), gg.TYPE_FLOAT)
+    gg.searchNumber("1.0", gg.TYPE_FLOAT)
     local count = gg.getResultsCount()
-
     if count == 0 then
         searchResult = "❌ 未找到1.0F"
         gg.alert("❌ 未找到浮点数\n\n请确认游戏已加载")
@@ -739,7 +569,12 @@ function searchTimeScale()
 
     gg.toast("找到 " .. count .. " 个1.0f，开始全量评分...")
 
-    -- 分批处理所有结果（v3.2逻辑）
+    -- 可选保留数量
+    local keepInput = gg.prompt({"保留得分前N个候选"}, {"1000"}, {"number"})
+    local KEEP = keepInput and tonumber(keepInput[1]) or 1000
+    if KEEP < 10 then KEEP = 10 end
+
+    -- 分批处理所有结果
     local BATCH = 10000
     local offset = 0
 
@@ -808,75 +643,181 @@ function searchTimeScale()
     binarySearch()
 end
 
+-- ============ 评分函数 ============
+
+function isGoodFloat(v)
+    if v == nil then return false end
+    if v ~= v then return false end
+    if v == math.huge or v == -math.huge then return false end
+    if v < -10000 or v > 10000 then return false end
+    return true
+end
+
+function near(v, target)
+    return math.abs(v - target) < 0.001
+end
+
+function calcScore(val2, val3)
+    local score = 0
+
+    if isGoodFloat(val2) then
+        score = score + 50
+        if near(val2, 0.333333) then score = score + 40 end
+        if near(val2, 0.033333) then score = score + 40 end
+        if near(val2, 0.02) then score = score + 35 end
+        if near(val2, 0.016666) or near(val2, 0.0167) then score = score + 35 end
+        if near(val2, 0.011111) then score = score + 30 end
+        if near(val2, 0.1) then score = score + 30 end
+        if near(val2, 0.05) then score = score + 20 end
+        if near(val2, 0.03) then score = score + 35 end
+        if val2 > 0 and val2 < 0.5 then score = score + 15 end
+        if val2 > 0.5 and val2 < 1.0 then score = score + 5 end
+        if val2 >= 5.0 then score = score - 30 end
+        if val2 >= 10.0 then score = score - 40 end
+    else
+        score = -100
+    end
+
+    if isGoodFloat(val3) then
+        score = score + 20
+        if near(val3, 0.1) then score = score + 30 end
+        if near(val3, 0.333333) then score = score + 25 end
+        if near(val3, 0.05) then score = score + 20 end
+        if near(val3, 0.033333) then score = score + 15 end
+        if near(val3, 0.03) then score = score + 25 end
+        if near(val3, 0.02) then score = score + 20 end
+        if val3 > 0 and val3 < 0.5 then score = score + 10 end
+        if val3 >= 5.0 then score = score - 20 end
+    else
+        score = score - 30
+    end
+
+    -- 经典组合加分
+    if isGoodFloat(val2) and isGoodFloat(val3) then
+        for _, c in ipairs(CLASSIC_COMBOS) do
+            if near(val2, c[1]) and near(val3, c[2]) then
+                score = score + 50
+                break
+            end
+        end
+    end
+
+    return score
+end
+
+-- ============ 二分法 ============
+
 function binarySearch()
     if #candidates == 0 then
-        gg.toast("❌ 无候选地址")
+        gg.alert("没有候选地址")
         return
     end
 
-    local working = candidates
-    local round = 0
+    local lo = 1
+    local hi = #candidates
 
-    while #working > 1 do
-        round = round + 1
-        local half = math.floor(#working / 2)
+    while lo < hi do
+        local mid = math.floor((lo + hi) / 2)
 
         local modifyList = {}
-        for i = 1, half do
-            modifyList[#modifyList + 1] = {
-                address = working[i].address,
-                flags = gg.TYPE_FLOAT,
-                value = 2.0
-            }
+        for i = lo, mid do
+            modifyList[#modifyList + 1] = {address = candidates[i].address, flags = gg.TYPE_FLOAT, value = 5.0}
         end
-
         gg.setValues(modifyList)
 
-        local c = gg.choice(
-            {"⚡  加速了 ✅", "🐌  没变化 ❌", "⏭️  跳过5个", "❌  放弃搜索"},
+        local choice = gg.choice(
+            {"✅ 速度变了！在这组里", "❌ 没变化，在另一组"},
             nil,
-            "🔄 二分法 第" .. round .. "轮 (剩余" .. #working .. "个)\n\n" ..
-            "游戏速度是否变化了？"
+            "二分法测试\n" ..
+            "测试: #" .. lo .. " ~ #" .. mid .. " (共" .. (mid - lo + 1) .. "个)\n" ..
+            "另一半: #" .. (mid + 1) .. " ~ #" .. hi .. "\n" ..
+            "已将前半组改为5.0x，速度变了吗？"
         )
 
-        for i = 1, half do
-            modifyList[i].value = working[i].value
+        local restoreList = {}
+        for i = lo, mid do
+            restoreList[#restoreList + 1] = {address = candidates[i].address, flags = gg.TYPE_FLOAT, value = 1.0}
         end
-        gg.setValues(modifyList)
+        gg.setValues(restoreList)
 
-        if c == 1 then
-            working = {table.unpack(working, 1, half)}
-        elseif c == 2 then
-            working = {table.unpack(working, half + 1)}
-        elseif c == 3 then
-            local skip = math.min(5, #working - 1)
-            working = {table.unpack(working, skip + 1)}
+        if choice == 1 then
+            hi = mid
+        elseif choice == 2 then
+            lo = mid + 1
         else
             searchResult = "⚠️ 搜索已放弃"
             return
         end
+
+        if hi - lo < 5 then
+            testOneByOne(lo, hi)
+            return
+        end
     end
 
-    if #working == 1 then
-        speedAddr = working[1].address
-        currentSpeed = 1.0
-        searchResult = "✅ " .. currentSpeed .. "x " .. string.format("0x%X", speedAddr)
-        saveToGGList(working[1])
-        gg.alert(
-            "━━━━━━━━━━━━━━━━━━━━━\n" ..
-            "  ✅ 找到 " .. _gs("time_scale") .. " 地址！\n" ..
-            "━━━━━━━━━━━━━━━━━━━━━\n\n" ..
-            "  地址: " .. string.format("0x%X", speedAddr) .. "\n" ..
-            "  当前值: " .. working[1].value .. "\n\n" ..
-            "  已保存到GG列表 📋"
-        )
-    else
-        searchResult = "❌ 未找到目标"
-        gg.toast("❌ 未找到目标地址")
-    end
+    testSingle(lo)
 end
 
--- ============ GG保存列表功能 ============
+-- ============ 逐个测试 ============
+
+function testOneByOne(lo, hi)
+    for i = lo, hi do
+        gg.setValues({{address = candidates[i].address, flags = gg.TYPE_FLOAT, value = 5.0}})
+        local c = gg.choice(
+            {"✅ 就是它！", "❌ 不是，下一个", "🔙 退出测试"},
+            nil,
+            "逐个测试 " .. (i - lo + 1) .. "/" .. (hi - lo + 1) ..
+            " (得分:" .. candidates[i].score .. ")" ..
+            "\n地址: " .. string.format("0x%X", candidates[i].address) ..
+            string.format(" +4:%.6f +8:%.6f", candidates[i].val2, candidates[i].val3) ..
+            "\n已改为5.0x，速度变了吗？"
+        )
+        if c == 1 then
+            speedAddr = candidates[i].address
+            currentSpeed = 1.0
+            searchResult = "✅ " .. currentSpeed .. "x " .. string.format("0x%X", speedAddr)
+            saveToGGList(candidates[i])
+            gg.alert(
+                "✅ 找到 timeScale 地址！\n\n" ..
+                "地址: " .. string.format("0x%X", speedAddr) .. "\n" ..
+                "当前值: 1.0\n\n" ..
+                "已保存到GG列表"
+            )
+            return
+        elseif c == 3 then
+            gg.setValues({{address = candidates[i].address, flags = gg.TYPE_FLOAT, value = 1.0}})
+            return
+        end
+        gg.setValues({{address = candidates[i].address, flags = gg.TYPE_FLOAT, value = 1.0}})
+    end
+    gg.alert("范围内未找到 timeScale\n\n可重新搜索或检查区域设置")
+end
+
+function testSingle(idx)
+    gg.setValues({{address = candidates[idx].address, flags = gg.TYPE_FLOAT, value = 5.0}})
+    local c = gg.choice(
+        {"✅ 就是它！", "❌ 不是"},
+        nil,
+        "最后1个候选\n地址: " .. string.format("0x%X", candidates[idx].address) ..
+        " 得分:" .. candidates[idx].score ..
+        "\n已改为5.0x，速度变了吗？"
+    )
+    if c == 1 then
+        speedAddr = candidates[idx].address
+        currentSpeed = 1.0
+        searchResult = "✅ " .. currentSpeed .. "x " .. string.format("0x%X", speedAddr)
+        saveToGGList(candidates[idx])
+        gg.alert(
+            "✅ 找到 timeScale 地址！\n\n" ..
+            "地址: " .. string.format("0x%X", speedAddr) .. "\n" ..
+            "当前值: 1.0\n\n" ..
+            "已保存到GG列表"
+        )
+    else
+        gg.setValues({{address = candidates[idx].address, flags = gg.TYPE_FLOAT, value = 1.0}})
+        gg.alert("未找到 timeScale")
+    end
+end
 
 function saveToGGList(item)
     if not _ggListOk then
