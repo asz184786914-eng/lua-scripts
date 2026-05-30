@@ -667,24 +667,34 @@ function searchTimeScale()
         local size = math.min(batchSize, remaining)
         local results = gg.getResults(size, processed)
 
+        -- 批量构建所有需要读取的地址（一次性IO）
+        local allAddrs = {}
         for i, r in ipairs(results) do
-            local nextVals = {}
-            local nextAddrs = {}
             for j = 1, 4 do
-                nextAddrs[j] = {
+                allAddrs[#allAddrs + 1] = {
                     address = r.address + j * 4,
                     flags = gg.TYPE_FLOAT,
                     value = 0
                 }
             end
+        end
 
-            local ok, nextRes = pcall(function()
-                return gg.getValues(nextAddrs)
-            end)
+        -- 一次性读取所有后续地址
+        local allVals = {}
+        local ok, allRes = pcall(gg.getValues, allAddrs)
+        if ok and allRes then
+            allVals = allRes
+        end
 
-            if ok and nextRes then
-                for j, nr in ipairs(nextRes) do
-                    nextVals[j] = nr.value
+        -- 解析评分
+        for i, r in ipairs(results) do
+            local nextVals = {}
+            if #allVals > 0 then
+                for j = 1, 4 do
+                    local idx = (i - 1) * 4 + j
+                    if idx <= #allVals then
+                        nextVals[j] = allVals[idx].value
+                    end
                 end
             end
 
@@ -701,6 +711,7 @@ function searchTimeScale()
         end
 
         processed = processed + size
+        gg.toast("🔍 已扫描 " .. processed .. "/" .. count)
     end
 
     gg.clearResults()
