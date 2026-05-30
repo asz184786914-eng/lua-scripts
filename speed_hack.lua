@@ -663,39 +663,59 @@ end
 
 -- ============ 搜索功能 ============
 
-function scoreResult(addr, val, nextVals)
+function isGoodFloat(v)
+    if v == 0 then return false end
+    if v ~= v then return false end  -- NaN
+    if math.abs(v) == math.huge then return false end
+    return true
+end
+
+function near(a, b)
+    if a == 0 and b == 0 then return true end
+    return math.abs(a - b) < 0.01
+end
+
+function calcScore(val2, val3)
     local score = 0
 
-    -- 基础分：值在合理范围
-    if val > 0.5 and val < 2.0 then score = score + 10 end
-    if val == 1.0 then score = score + 5 end
-
-    -- +4 偏移值评分
-    if nextVals and #nextVals >= 1 then
-        local v2 = nextVals[1]
-        if v2 > 0 and v2 < 0.5 then score = score + 15 end
-        if v2 > 0.5 and v2 < 1.0 then score = score + 5 end
-        if v2 >= 5.0 then score = score - 30 end
-        if v2 >= 10.0 then score = score - 40 end
+    if isGoodFloat(val2) then
+        score = score + 50
+        if near(val2, 0.333333) then score = score + 40 end
+        if near(val2, 0.033333) then score = score + 40 end
+        if near(val2, 0.02) then score = score + 35 end
+        if near(val2, 0.016666) or near(val2, 0.0167) then score = score + 35 end
+        if near(val2, 0.011111) then score = score + 30 end
+        if near(val2, 0.1) then score = score + 30 end
+        if near(val2, 0.05) then score = score + 20 end
+        if near(val2, 0.03) then score = score + 35 end
+        if val2 > 0 and val2 < 0.5 then score = score + 15 end
+        if val2 > 0.5 and val2 < 1.0 then score = score + 5 end
+        if val2 >= 5.0 then score = score - 30 end
+        if val2 >= 10.0 then score = score - 40 end
+    else
+        score = -100
     end
 
-    -- +8 偏移值评分
-    if nextVals and #nextVals >= 2 then
-        local v3 = nextVals[2]
-        if v3 > 0 and v3 < 0.5 then score = score + 10 end
-        if v3 >= 5.0 then score = score - 20 end
+    if isGoodFloat(val3) then
+        score = score + 20
+        if near(val3, 0.1) then score = score + 30 end
+        if near(val3, 0.333333) then score = score + 25 end
+        if near(val3, 0.05) then score = score + 20 end
+        if near(val3, 0.033333) then score = score + 15 end
+        if near(val3, 0.03) then score = score + 25 end
+        if near(val3, 0.02) then score = score + 20 end
+        if val3 > 0 and val3 < 0.5 then score = score + 10 end
+        if val3 >= 5.0 then score = score - 20 end
+    else
+        score = score - 30
     end
 
-    -- 经典组合匹配（最高加分）
-    if nextVals and #nextVals >= 2 then
-        for _, combo in ipairs(CLASSIC_COMBOS) do
-            local diff1 = math.abs(nextVals[1] - combo[1])
-            local diff2 = math.abs(nextVals[2] - combo[2])
-            if diff1 < 0.01 and diff2 < 0.01 then
-                score = score + (combo.bonus or 50)
+    -- 经典组合加分
+    if isGoodFloat(val2) and isGoodFloat(val3) then
+        for _, c in ipairs(CLASSIC_COMBOS) do
+            if near(val2, c[1]) and near(val3, c[2]) then
+                score = score + (c.bonus or 50)
                 break
-            elseif diff1 < 0.01 then
-                score = score + 5
             end
         end
     end
@@ -755,7 +775,7 @@ function searchTimeScale()
             for i = resultIdx, batchEnd do
                 local val2 = vals[(i - resultIdx) * 2 + 1].value
                 local val3 = vals[(i - resultIdx) * 2 + 2].value
-                local score = scoreResult(results[i].address, results[i].value, {val2, val3})
+                local score = calcScore(val2, val3)
 
                 if score > 0 then
                     candidates[#candidates + 1] = {
