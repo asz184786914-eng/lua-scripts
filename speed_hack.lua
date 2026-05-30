@@ -189,7 +189,11 @@ local function _getDeviceFP()
     end
 
     local raw = table.concat(ids, "|")
-    if raw == "" then raw = (gg.getSelectedPackage() or "unknown") end
+    if raw == "" then
+        -- 硬件信息都拿不到时，用 android.id 替代
+        local ok, aid = pcall(gg.makeRequest, "content://settings/secure/android_id")
+        raw = (ok and type(aid) == "string" and aid ~= "") and aid or "default_device"
+    end
     return raw
 end
 
