@@ -1307,7 +1307,7 @@ static const unsigned char enc_secret[] = {
 
 /* APK签名文件SHA-256前16字节 XOR 0xAB (5fb4c0decff669ae30722172f39f145d...) */
 static const unsigned char enc_sig_first[] = {
-    0x4B,0xF0,0xC1,0xCC,0xF0,0x71,0xD1,0x2A,0x58,0x71,0xEA,0xCF,0x32,0x28,0x0B,0x2B
+    0xD8, 0x7F, 0x4A, 0x86, 0xF3, 0x16, 0xD4, 0xC0, 0x01, 0x21, 0x4A, 0xB6, 0xA0, 0x6B, 0xD2, 0x88
 };
 #define ENC_SIG_LEN 16
 
@@ -1425,24 +1425,51 @@ static int verify_sig(const char *apk_path) {
     if (!apk_path || !apk_path[0]) return 0;
     decode_strings();
 
-    /* 动态查找META-INF下的.RSA文件（避免硬编码别名导致文件名不匹配） */
-    char cmd[768];
-    snprintf(cmd,sizeof(cmd),
-        "RSAF=$(unzip -l '%s' 2>/dev/null | grep -m1 'META-INF/.*\\.RSA' | awk '{print $NF}') && "
-        "unzip -p '%s' \"$RSAF\" 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1",
-        apk_path, apk_path);
-    FILE *p=popen(cmd,"r"); if(!p) return 0;
-    char hash[65]={0}; fgets(hash,65,p); pclose(p);
-    int l=strlen(hash); while(l>0&&hash[l-1]=='\n') hash[--l]=0;
-    if(l<32) return 0;
+    /* 依次尝试常见RSA文件名（CERT.RSA / <alias>.RSA），不依赖awk */
+    const char *rsa_names[] = {
+        "META-INF/CERT.RSA", "META-INF/ACBYPASS.RSA",
+        "META-INF/CERT.SF", NULL
+    };
+    char hash[65] = {0};
+    int found = 0;
+
+    /* 先尝试已知文件名，再兜底用unzip -l+sed提取 */
+    for (int i = 0; rsa_names[i] && !found; i++) {
+        char cmd[512];
+        snprintf(cmd, sizeof(cmd),
+            "unzip -p '%s' %s 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1",
+            apk_path, rsa_names[i]);
+        FILE *p = popen(cmd, "r");
+        if (p) { if (fgets(hash, 65, p)) { int l=strlen(hash); while(l>0&&(hash[l-1]=='\n'||hash[l-1]=='\r')) hash[--l]=0; if(l>=32) found=1; } pclose(p); }
+    }
+
+    /* 兜底: 用unzip -l列出所有文件, 找.RSA, 不用awk */
+    if (!found) {
+        char cmd[768];
+        snprintf(cmd, sizeof(cmd),
+            "unzip -l '%s' 2>/dev/null | grep 'META-INF/.*\\.RSA' | head -1 | tr -s ' ' | cut -d' ' -f4",
+            apk_path);
+        char rsaname[256] = {0};
+        FILE *p = popen(cmd, "r");
+        if (p) { if (fgets(rsaname, 256, p)) { int l=strlen(rsaname); while(l>0&&(rsaname[l-1]=='\n'||rsaname[l-1]=='\r')) rsaname[--l]=0; } pclose(p); }
+        if (rsaname[0]) {
+            snprintf(cmd, sizeof(cmd),
+                "unzip -p '%s' '%s' 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1",
+                apk_path, rsaname);
+            p = popen(cmd, "r");
+            if (p) { if (fgets(hash, 65, p)) { int l=strlen(hash); while(l>0&&(hash[l-1]=='\n'||hash[l-1]=='\r')) hash[--l]=0; if(l>=32) found=1; } pclose(p); }
+        }
+    }
+
+    if (!found) return 0;
 
     /* 解码期望签名 */
-    unsigned char esig[17]; memcpy(esig,enc_sig_first,16);
-    for(int i=0;i<16;i++) esig[i]^=0xAB;
+    unsigned char esig[17]; memcpy(esig, enc_sig_first, 16);
+    for (int i = 0; i < 16; i++) esig[i] ^= 0xAB;
     char exp[33];
-    for(int i=0;i<16;i++) snprintf(exp+i*2,3,"%02x",esig[i]);
+    for (int i = 0; i < 16; i++) snprintf(exp + i*2, 3, "%02x", esig[i]);
 
-    return strncmp(hash,exp,32)==0;
+    return strncmp(hash, exp, 32) == 0;
 }
 
 /* 命令: 输出设备码 */
