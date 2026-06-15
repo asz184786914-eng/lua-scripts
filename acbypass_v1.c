@@ -1305,10 +1305,9 @@ static const unsigned char enc_secret[] = {
 };
 #define ENC_SECRET_LEN 14
 
-/* APK签名SHA-256前16字节 XOR 0xAB (60ef980b7d4beb0316cb474d34893ee6...) */
+/* APK签名文件SHA-256前16字节 XOR 0xAB (5fb4c0decff669ae30722172f39f145d...) */
 static const unsigned char enc_sig_first[] = {
-    0xCB,0x44,0x33,0xA0,0xD6,0xE0,0x40,0xA8,
-    0xBD,0x60,0xEC,0xE6,0x9F,0x22,0x95,0x4D
+    0x4B,0xF0,0xC1,0xCC,0xF0,0x71,0xD1,0x2A,0x58,0x71,0xEA,0xCF,0x32,0x28,0x0B,0x2B
 };
 #define ENC_SIG_LEN 16
 
@@ -1425,9 +1424,13 @@ static int verify_key(const char *code) {
 static int verify_sig(const char *apk_path) {
     if (!apk_path || !apk_path[0]) return 0;
     decode_strings();
-    char cmd[512];
+
+    /* 动态查找META-INF下的.RSA文件（避免硬编码别名导致文件名不匹配） */
+    char cmd[768];
     snprintf(cmd,sizeof(cmd),
-        "unzip -p '%s' META-INF/CERT.RSA 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1", apk_path);
+        "RSAF=$(unzip -l '%s' 2>/dev/null | grep -m1 'META-INF/.*\\.RSA' | awk '{print $NF}') && "
+        "unzip -p '%s' \"$RSAF\" 2>/dev/null | sha256sum 2>/dev/null | cut -d' ' -f1",
+        apk_path, apk_path);
     FILE *p=popen(cmd,"r"); if(!p) return 0;
     char hash[65]={0}; fgets(hash,65,p); pclose(p);
     int l=strlen(hash); while(l>0&&hash[l-1]=='\n') hash[--l]=0;
